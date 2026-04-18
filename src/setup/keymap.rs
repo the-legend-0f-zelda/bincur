@@ -22,7 +22,8 @@ pub fn parse_keymap() {
         let kv:Vec<&str> = cleaned.split(':').collect();
         let behavior = kv[0];
         let inputs:Vec<u16> = kv[1].split("+").map(|i| {
-            let key_code = evdev::KeyCode::from_str(i).unwrap();
+            let key = format!("KEY_{}", i);
+            let key_code = evdev::KeyCode::from_str(key.as_str()).unwrap();
             return key_code.0
         }).collect();
 
