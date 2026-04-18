@@ -16,7 +16,6 @@ fn main() -> std::io::Result<()> {
                 match target.fetch_events() {
                     Ok(iter) => for pressed in iter {
                         println!("입력: {:#?}", pressed);
-                        //println!("타입: {}", pressed.)
                     },
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                     Err(e) => return Err(e),
