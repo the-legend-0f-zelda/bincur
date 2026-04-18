@@ -29,6 +29,7 @@ impl EventDriver {
         //for (dev_idx, (_, device)) in &mut self.devices.iter().enumerate() {
         for (dev_idx, (_, device)) in &mut KEYBOARDS.lock().unwrap().iter().enumerate()
         {
+            device.set_nonblocking(true).unwrap();
             self.poll.registry()
                 .register(
                     &mut SourceFd(&device.as_raw_fd()),
