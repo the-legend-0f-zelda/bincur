@@ -1,17 +1,16 @@
-use std::{path::PathBuf, sync::Mutex};
+use std::{cell::{RefCell}, path::PathBuf};
 use evdev::Device;
 
-pub static KEYBOARDS:Mutex<Vec<(PathBuf, Device)>> = Mutex::new(Vec::new());
+thread_local! {
+    pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
+}
 
 pub(crate) fn scan() {
-    let mut guard = KEYBOARDS.lock().unwrap();
-    guard.clear();
-
     for (path, dev) in evdev::enumerate() {
         if dev.supported_keys().map_or(false,
             |k| k.contains(evdev::KeyCode::KEY_A)
             && k.contains(evdev::KeyCode::KEY_ENTER)
             && k.contains(evdev::KeyCode::KEY_SPACE)
-        ){ guard.push((path, dev)); }
+        ){ KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
     }
 }

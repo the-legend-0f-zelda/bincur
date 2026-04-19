@@ -23,17 +23,17 @@ impl EventDriver {
     pub fn reset(&mut self) {
         keyboards::scan();
 
-        for (dev_idx, (_, device)) in &mut KEYBOARDS.lock().unwrap().iter().enumerate()
-        {
-            device.set_nonblocking(true).unwrap();
-            self.poll.registry()
-                .register(
+        KEYBOARDS.with_borrow_mut(|v| {
+            for (dev_idx, (_, device)) in v.iter().enumerate() {
+                device.set_nonblocking(true).unwrap();
+
+                self.poll.registry().register(
                     &mut SourceFd(&device.as_raw_fd()),
                     Token(dev_idx),
                     Interest::READABLE
-                )
-                .unwrap();
-        }
+                ).unwrap()
+            }
+        });
     }
 
     pub fn block_ready(&mut self) -> Result<(), std::io::Error> {
