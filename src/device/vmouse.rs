@@ -57,6 +57,75 @@ pub fn example() -> std::io::Result<()> {
     }
 }
 
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+pub enum Behavior {
+    MoveUp,
+    MoveDown,
+    MoveLeft,
+    MoveRight,
+
+    ClickLeft,
+    ClickRight,
+
+    ScrollUp,
+    ScrollDown
+}
+
+impl Behavior {
+    pub fn from_str(behavior: &str) -> Self {
+        match behavior.to_uppercase().as_str() {
+            "MOVE_UP" => Self::MoveUp,
+            "MOVE_DOWN" => Self::MoveDown,
+            "MOVE_LEFT" => Self::MoveLeft,
+            "MOVE_RIGHT" => Self::MoveRight,
+
+            "CLICK_LEFT" => Self::ClickLeft,
+            "CLICK_RIGHT" => Self::ClickRight,
+
+            "SCROLL_UP" => Self::ScrollUp,
+            "SCROLL_DOWN" => Self::ScrollDown,
+
+            _ => {
+                eprintln!("ERROR - unknown vmouse behvior: {}", behavior);
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+pub fn dispatch(behavior: &Behavior) {
+    // do something
+    match behavior {
+
+        Behavior::MoveUp => {
+            println!("dispatch! : move up");
+        },
+        Behavior::MoveDown => {
+            println!("dispatch! : move down");
+        },
+        Behavior::MoveLeft => {
+            println!("dispatch! : move left");
+        },
+        Behavior::MoveRight => {
+            println!("dispatch! : move right");
+        },
+
+        Behavior::ClickLeft => {
+            println!("dispatch! : click left");
+        },
+        Behavior::ClickRight => {
+            println!("dispatch! : click right");
+        },
+
+        Behavior::ScrollUp => {
+            println!("dispatch! : scroll up");
+        },
+        Behavior::ScrollDown => {
+            println!("dispatch! : scroll down");
+        }
+    }
+}
+
 
 enum MoveDirection {
     Up,

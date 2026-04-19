@@ -1,35 +1,63 @@
 use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}, str::FromStr, sync::OnceLock};
-use crate::setup::config::{resolve_config_path};
+use crate::{device::vmouse::Behavior, setup::config};
 
-pub static KEYMAP:OnceLock<HashMap<String, Vec<u16>>> = OnceLock::new();
+static KEYMAP_FWD:OnceLock<HashMap<Behavior, Vec<u16>>> = OnceLock::new();
+static KEYMAP_RVS:OnceLock<[Vec<Behavior>; 249]> = OnceLock::new();
 
-pub fn load() {
-    let keymap_file:File = File::open(
-        resolve_config_path().join("keymap.conf")
-    )
-    .unwrap();
+pub fn load_fwd() -> &'static HashMap<Behavior, Vec<u16>> {
+    KEYMAP_FWD.get_or_init(|| {
+        let keymap_file:File = File::open(
+            config::resolve_path().join("keymap.conf")
+        ).unwrap();
 
-    let mut tmp:HashMap<String, Vec<u16>> = HashMap::new();
+        let mut tmp:HashMap<Behavior, Vec<u16>> = HashMap::new();
 
-    for line in BufReader::new(keymap_file).lines(){
-        let line = line.unwrap();
-        let cleaned = line.replace(" ", "");
+        for line in BufReader::new(keymap_file).lines(){
+            let line = line.unwrap();
+            let cleaned = line.replace(" ", "");
 
-        if cleaned.is_empty() || cleaned.starts_with("#") {
-            continue;
+            if cleaned.is_empty() || cleaned.starts_with("#") {
+                continue;
+            }
+
+            let kv:Vec<&str> = cleaned.split(':').collect();
+            let [i, b] = kv.as_slice() else {
+                  eprintln!("invalid keymap line: {}", cleaned);
+                  std::process::exit(1);
+            };
+
+            let inputs:Vec<u16> = i.split('+').map(|i| {
+                let key = format!("KEY_{}", i.to_uppercase());
+                let key_code = evdev::KeyCode::from_str(key.as_str())
+                    .unwrap_or_else(|e| {
+                        eprintln!("invalid keymap line: {}", cleaned);
+                        eprintln!("keymap error : {}", e);
+                        std::process::exit(1);
+                    });
+
+                key_code.0
+            }).collect();
+
+            tmp.insert(Behavior::from_str(b), inputs);
         }
 
-        let kv:Vec<&str> = cleaned.split(':').collect();
-        let behavior = kv[1];
-        let inputs:Vec<u16> = kv[0].split("+").map(|i| {
-            let key = format!("KEY_{}", i.to_uppercase());
-            let key_code = evdev::KeyCode::from_str(key.as_str()).unwrap();
-            return key_code.0
-        }).collect();
+        println!("keymappings: {:#?}", tmp);
+        tmp
+    })
+}
 
-        tmp.insert(String::from(behavior), inputs);
-    }
+pub fn load_rvs() -> &'static [Vec<Behavior>] {
+    KEYMAP_RVS.get_or_init(|| {
+        let mut tmp:[Vec<Behavior>; 249] = std::array::from_fn(|_| Vec::new());
 
-    println!("keymappings: {:#?}", tmp);
-    KEYMAP.get_or_init(|| {tmp});
+        for (behavior, inputs) in load_fwd() {
+            for i in inputs {
+                if let Some(slot) = tmp.get_mut(*i as usize) {
+                    slot.push(behavior.clone());
+                }
+            }
+        }
+
+        tmp
+    })
 }
