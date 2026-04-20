@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::Behavior}, setup::keymap::{self, load_fwd}};
+use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::Behavior}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -82,19 +82,16 @@ fn handle_events(events: FetchEventsSynced){
                         .unwrap();
 
                     for behavior in related_behaviors {
-                        let combo = load_fwd().get(&behavior).unwrap();
-                        for required in combo {
-                            if *required == e.code() {continue;}
+                        let combo = keymap::load_fwd()
+                            .get(&behavior)
+                            .unwrap();
 
-                            match states.get(*required as usize) {
-                                Some(state) => if !*state {return},
-                                None => return
-                            }
-                        }
+                        let others_pressed = combo.iter()
+                            .filter(|&&k| k != e.code())
+                            .all(|&k| states.get(k as usize).copied().unwrap_or(false));
 
-                        // When the combo is broken
-                        if let Some(invers_behavior) = behavior.inverse() {
-                            invers_behavior.dispatch();
+                        if others_pressed && let Some(inv) = behavior.inverse() {
+                            inv.dispatch();
                         }
                     }
 
