@@ -66,6 +66,8 @@ pub enum Behavior {
 
     ClickLeft,
     ClickRight,
+    ReleaseLeft,
+    ReleaseRight,
 
     ScrollUp,
     ScrollDown
@@ -91,37 +93,50 @@ impl Behavior {
             }
         }
     }
-}
 
-pub fn dispatch(behavior: &Behavior) {
-    // do something
-    match behavior {
+    pub fn inverse(&self) -> Option<Self> {
+        match self {
+            Self::ClickLeft => Some(Self::ReleaseLeft),
+            Self::ClickRight => Some(Self::ReleaseRight),
+            _ => None
+        }
+    }
 
-        Behavior::MoveUp => {
-            println!("dispatch! : move up");
-        },
-        Behavior::MoveDown => {
-            println!("dispatch! : move down");
-        },
-        Behavior::MoveLeft => {
-            println!("dispatch! : move left");
-        },
-        Behavior::MoveRight => {
-            println!("dispatch! : move right");
-        },
+    pub fn dispatch(&self) {
+        // do something
+        match self {
+            Self::MoveUp => {
+                println!("dispatch! : move up");
+            },
+            Self::MoveDown => {
+                println!("dispatch! : move down");
+            },
+            Self::MoveLeft => {
+                println!("dispatch! : move left");
+            },
+            Self::MoveRight => {
+                println!("dispatch! : move right");
+            },
 
-        Behavior::ClickLeft => {
-            println!("dispatch! : click left");
-        },
-        Behavior::ClickRight => {
-            println!("dispatch! : click right");
-        },
+            Self::ClickLeft => {
+                println!("dispatch! : click left");
+            },
+            Self::ClickRight => {
+                println!("dispatch! : click right");
+            },
+            Self::ReleaseLeft => {
+                println!("dispatch! : release left");
+            },
+            Self::ReleaseRight => {
+                println!("dispatch! : release right");
+            },
 
-        Behavior::ScrollUp => {
-            println!("dispatch! : scroll up");
-        },
-        Behavior::ScrollDown => {
-            println!("dispatch! : scroll down");
+            Self::ScrollUp => {
+                println!("dispatch! : scroll up");
+            },
+            Self::ScrollDown => {
+                println!("dispatch! : scroll down");
+            }
         }
     }
 }

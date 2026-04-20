@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::{self, Behavior}}, setup::keymap};
+use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::Behavior}, setup::keymap::{self, load_fwd}};
 
 
 pub struct EventDriver {
@@ -58,6 +58,7 @@ impl EventDriver {
                         }
                     }
                 });
+
             }
         }
     }
@@ -65,26 +66,51 @@ impl EventDriver {
 
 
 fn handle_events(events: FetchEventsSynced){
-    for pressed in events {
-        if EventType::KEY != pressed.event_type() {
+    for e in events {
+        if EventType::KEY != e.event_type() {
             continue;
         }
 
         PRESS_STATE.with_borrow_mut(|states| {
-            if let Some(slot) = states.get_mut(pressed.code() as usize) {
-                *slot = pressed.value()>0;
-                if !*slot {return;}
+            if let Some(slot) = states.get_mut(e.code() as usize) {
+                *slot = e.value() > 0;
+
+                // Handles the inverse event (keyUp)
+                if !*slot {
+                    let related_behaviors = keymap::load_rvs()
+                        .get(e.code() as usize)
+                        .unwrap();
+
+                    for behavior in related_behaviors {
+                        let combo = load_fwd().get(&behavior).unwrap();
+                        for required in combo {
+                            if *required == e.code() {continue;}
+
+                            match states.get(*required as usize) {
+                                Some(state) => if !*state {return},
+                                None => return
+                            }
+                        }
+
+                        // When the combo is broken
+                        if let Some(invers_behavior) = behavior.inverse() {
+                            invers_behavior.dispatch();
+                        }
+                    }
+
+                    return;
+                }
             }
 
+            // Handles the direct event (keyDown)
             let candidates = keymap::load_rvs()
-                .get(pressed.code() as usize)
+                .get(e.code() as usize)
                 .unwrap();
 
             let mut intended:Option<Behavior> = None;
             let mut max_combo_cnt:usize = 0;
 
             for behavior in candidates {
-                // check keybind combo
                 let combo = keymap::load_fwd().get(behavior).unwrap();
                 if combo.len() <= max_combo_cnt {break;}
 
@@ -103,7 +129,7 @@ fn handle_events(events: FetchEventsSynced){
             }
 
             if let Some(todo) = intended {
-                vmouse::dispatch(&todo);
+                todo.dispatch();
             }
         });
     }

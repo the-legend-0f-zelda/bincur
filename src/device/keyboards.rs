@@ -3,7 +3,6 @@ use evdev::Device;
 
 thread_local! {
     pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
-
     /// Pressed state indexed by evdev scancode (KEY_RESERVED=0 .. KEY_MICMUTE=248).
     pub static PRESS_STATE:RefCell<[bool; 249]> = RefCell::new([false; 249]);
 }
