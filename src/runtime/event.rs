@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::Behavior}, setup::keymap};
+use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -71,63 +71,54 @@ fn handle_events(events: FetchEventsSynced){
             continue;
         }
 
+        let Some(related_behaviors) = keymap::load_rvs()
+            .get(e.code() as usize)
+        else {continue};
+        if related_behaviors.len() == 0 {continue;}
+
         PRESS_STATE.with_borrow_mut(|states| {
-            if let Some(slot) = states.get_mut(e.code() as usize) {
-                *slot = e.value() > 0;
+            let slot = match states.get_mut(e.code() as usize) {
+                Some(slot) => slot,
+                None => return
+            };
+            *slot = e.value() > 0;
+        });
 
-                // Handles the inverse event (keyUp)
-                if !*slot {
-                    let related_behaviors = keymap::load_rvs()
-                        .get(e.code() as usize)
-                        .unwrap();
+        ACTIVATED_SET.with_borrow_mut(|active| {
+            if e.value() > 0 {
+                // On key down
+                for behavior in related_behaviors {
+                    if active.contains(behavior) {continue}
 
-                    for behavior in related_behaviors {
-                        let combo = keymap::load_fwd()
-                            .get(&behavior)
-                            .unwrap();
+                    let combo = match keymap::load_fwd().get(behavior) {
+                        Some(combo) => combo,
+                        None => continue
+                    };
 
-                        let others_pressed = combo.iter()
-                            .filter(|&&k| k != e.code())
-                            .all(|&k| states.get(k as usize).copied().unwrap_or(false));
+                    PRESS_STATE.with_borrow(|press| {
+                        if combo.iter()
+                            .all(|&k| *press.get(k as usize).unwrap_or(&false))
+                        { active.insert(behavior.clone()); }
+                    });
+                }
+            }else {
+                // On key up
+                related_behaviors.iter()
+                    .for_each(|r| {
+                        if !active.contains(r) {return;}
+                        active.remove(r);
 
-                        if others_pressed && let Some(inv) = behavior.inverse() {
+                        if let Some(inv) = r.inverse() {
                             inv.dispatch();
                         }
-                    }
-
-                    return;
-                }
+                    });
             }
 
-            // Handles the direct event (keyDown)
-            let candidates = keymap::load_rvs()
-                .get(e.code() as usize)
-                .unwrap();
-
-            let mut intended:Option<Behavior> = None;
-            let mut max_combo_cnt:usize = 0;
-
-            for behavior in candidates {
-                let combo = keymap::load_fwd().get(behavior).unwrap();
-                if combo.len() <= max_combo_cnt {break;}
-
-                let mut completed = true;
-                for required in combo {
-                    if !*states.get(*required as usize).unwrap() {
-                        completed = false;
-                        break;
-                    }
-                }
-
-                if completed {
-                    max_combo_cnt = combo.len();
-                    intended = Some(behavior.clone());
-                }
-            }
-
-            if let Some(todo) = intended {
-                todo.dispatch();
-            }
+            println!("syn report start");
+            active.iter().for_each(|a| {
+                a.dispatch();
+            });
+            println!("syn report end");
         });
     }
 }

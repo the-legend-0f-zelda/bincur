@@ -1,8 +1,14 @@
 use evdev::{AbsInfo, AbsoluteAxisCode, KeyCode, UinputAbsSetup};
 use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent};
+use std::cell::RefCell;
+use std::collections::HashSet;
 use std::thread::sleep;
 use std::time::Duration;
 use MoveDirection::*;
+
+thread_local! {
+    pub static ACTIVATED_SET:RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
+}
 
 pub fn example() -> std::io::Result<()> {
     // Build virtual absolute mouse
