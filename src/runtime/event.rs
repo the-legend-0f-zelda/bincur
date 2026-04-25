@@ -66,30 +66,27 @@ impl EventDriver {
 
 
 fn handle_events(events: FetchEventsSynced){
-    for e in events {
-        if EventType::KEY != e.event_type() {
+    for ev in events {
+        if EventType::KEY != ev.event_type() {
             continue;
         }
 
         let Some(related_behaviors) = keymap::load_rvs()
-            .get(e.code() as usize)
+            .get(ev.code() as usize)
         else {continue};
         if related_behaviors.len() == 0 {continue;}
 
         PRESS_STATE.with_borrow_mut(|states| {
-            let slot = match states.get_mut(e.code() as usize) {
+            let slot = match states.get_mut(ev.code() as usize) {
                 Some(slot) => slot,
                 None => return
             };
-            *slot = e.value() > 0;
+            *slot = ev.value() > 0;
         });
 
         ACTIVATED_SET.with_borrow_mut(|active| {
-            if e.value() > 0 {
-                // On key down
+            if ev.value() > 0 { // On key down
                 for behavior in related_behaviors {
-                    if active.contains(behavior) {continue}
-
                     let combo = match keymap::load_fwd().get(behavior) {
                         Some(combo) => combo,
                         None => continue
@@ -101,24 +98,21 @@ fn handle_events(events: FetchEventsSynced){
                         { active.insert(behavior.clone()); }
                     });
                 }
-            }else {
-                // On key up
-                related_behaviors.iter()
-                    .for_each(|r| {
-                        if !active.contains(r) {return;}
-                        active.remove(r);
 
-                        if let Some(inv) = r.inverse() {
-                            inv.dispatch();
-                        }
-                    });
+                println!("syn report start");
+                active.iter().for_each(|a| {
+                    a.dispatch();
+                });
+                println!("syn report end");
+
+            }else { // On key up
+                for behavior in related_behaviors {
+                    if !active.remove(behavior) {continue}
+                    if let Some(inv) = behavior.inverse() {
+                        inv.dispatch();
+                    }
+                }
             }
-
-            println!("syn report start");
-            active.iter().for_each(|a| {
-                a.dispatch();
-            });
-            println!("syn report end");
         });
     }
 }
