@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, setup::keymap};
+use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -94,15 +94,31 @@ fn handle_events(events: FetchEventsSynced){
 
                     PRESS_STATE.with_borrow(|press| {
                         if combo.iter()
-                            .all(|&k| *press.get(k as usize).unwrap_or(&false))
+                            .all(|&key| *press.get(key as usize).unwrap_or(&false))
                         { active.insert(behavior.clone()); }
                     });
                 }
 
+                let mut to_dispatch:Vec<Behavior> = Vec::new();
+                let mut max_combo_len = 0;
+                let keymap_fwd = keymap::load_fwd();
+
+                for a in active.iter() {
+                    let Some(combo) = keymap_fwd.get(a) else {continue};
+                    let len = combo.len();
+
+                    if len < max_combo_len {continue}
+                    if len > max_combo_len {
+                        to_dispatch.clear();
+                        max_combo_len = len;
+                    }
+                    to_dispatch.push(a.clone());
+                }
+
                 println!("syn report start");
-                active.iter().for_each(|a| {
-                    a.dispatch();
-                });
+                for behavior in to_dispatch {
+                    behavior.dispatch();
+                }
                 println!("syn report end");
 
             }else { // On key up
