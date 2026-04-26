@@ -66,6 +66,8 @@ impl EventDriver {
 
 
 fn handle_events(events: FetchEventsSynced){
+    let keymap_fwd = keymap::load_fwd();
+
     for ev in events {
         if EventType::KEY != ev.event_type() {
             continue;
@@ -87,7 +89,7 @@ fn handle_events(events: FetchEventsSynced){
         ACTIVATED_SET.with_borrow_mut(|active| {
             if ev.value() > 0 { // On key down
                 for behavior in related_behaviors {
-                    let combo = match keymap::load_fwd().get(behavior) {
+                    let combo = match keymap_fwd.get(behavior) {
                         Some(combo) => combo,
                         None => continue
                     };
@@ -101,7 +103,6 @@ fn handle_events(events: FetchEventsSynced){
 
                 let mut to_dispatch:Vec<Behavior> = Vec::new();
                 let mut max_combo_len = 0;
-                let keymap_fwd = keymap::load_fwd();
 
                 for a in active.iter() {
                     let Some(combo) = keymap_fwd.get(a) else {continue};

@@ -1,4 +1,4 @@
-use evdev::{AbsInfo, AbsoluteAxisCode, KeyCode, UinputAbsSetup};
+use evdev::{AbsInfo, AbsoluteAxisCode, KeyCode, RelativeAxisCode, UinputAbsSetup};
 use evdev::{uinput::VirtualDevice, AttributeSet, EventType, InputEvent};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -6,8 +6,18 @@ use std::thread::sleep;
 use std::time::Duration;
 use MoveDirection::*;
 
+use crate::setup;
+
+
 thread_local! {
-    pub static ACTIVATED_SET:RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
+    pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
+    pub static VMOUSE_DEVICE :RefCell<VirtualDevice> = RefCell::new(
+        VirtualDevice::builder().unwrap()
+            .name("bincur")
+            .with_relative_axes(setup::vmouse::get_rel_axes()).unwrap()
+            .with_keys(setup::vmouse::get_keys()).unwrap()
+            .build().unwrap()
+    );
 }
 
 pub fn example() -> std::io::Result<()> {
@@ -89,6 +99,8 @@ impl Behavior {
 
             "CLICK_LEFT" => Self::ClickLeft,
             "CLICK_RIGHT" => Self::ClickRight,
+            "RELEASE_LEFT" => Self::ReleaseLeft,
+            "RELEASE_RIGHT" => Self::ReleaseRight,
 
             "SCROLL_UP" => Self::ScrollUp,
             "SCROLL_DOWN" => Self::ScrollDown,
@@ -109,41 +121,56 @@ impl Behavior {
     }
 
     pub fn dispatch(&self) {
-        // do something
-        match self {
-            Self::MoveUp => {
-                println!("dispatch! : move up");
-            },
-            Self::MoveDown => {
-                println!("dispatch! : move down");
-            },
-            Self::MoveLeft => {
-                println!("dispatch! : move left");
-            },
-            Self::MoveRight => {
-                println!("dispatch! : move right");
-            },
+        VMOUSE_DEVICE.with_borrow_mut(|device| {
+            let events: Vec<InputEvent> = match self {
+                Self::MoveUp => {
+                    println!("dispatch! : move up");
+                    vec![new_move_mouse_event(Up, 50)]
+                },
+                Self::MoveDown => {
+                    println!("dispatch! : move down");
+                    vec![new_move_mouse_event(Down, 50)]
+                },
+                Self::MoveLeft => {
+                    println!("dispatch! : move left");
+                    vec![new_move_mouse_event(Left, 50)]
+                },
+                Self::MoveRight => {
+                    println!("dispatch! : move right");
+                    vec![new_move_mouse_event(Right, 50)]
+                },
 
-            Self::ClickLeft => {
-                println!("dispatch! : click left");
-            },
-            Self::ClickRight => {
-                println!("dispatch! : click right");
-            },
-            Self::ReleaseLeft => {
-                println!("dispatch! : release left");
-            },
-            Self::ReleaseRight => {
-                println!("dispatch! : release right");
-            },
+                Self::ClickLeft => {
+                    println!("dispatch! : click left");
+                    vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), 1)]
+                },
+                Self::ClickRight => {
+                    println!("dispatch! : click right");
+                    vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), 1)]
+                },
+                Self::ReleaseLeft => {
+                    println!("dispatch! : release left");
+                    vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), 0)]
+                },
+                Self::ReleaseRight => {
+                    println!("dispatch! : release right");
+                    vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), 0)]
+                },
 
-            Self::ScrollUp => {
-                println!("dispatch! : scroll up");
-            },
-            Self::ScrollDown => {
-                println!("dispatch! : scroll down");
+                Self::ScrollUp => {
+                    println!("dispatch! : scroll up");
+                    vec![]
+                },
+                Self::ScrollDown => {
+                    println!("dispatch! : scroll down");
+                    vec![]
+                }
+            };
+
+            if let Err(e) = device.emit(&events) {
+                eprintln!("ERROR - emit failed: {}", e);
             }
-        }
+        });
     }
 }
 
@@ -155,13 +182,12 @@ enum MoveDirection {
     Right,
 }
 
-
 fn new_move_mouse_event(direction: MoveDirection, distance: u16) -> InputEvent {
     let (axis, distance) = match direction {
-        MoveDirection::Up => (AbsoluteAxisCode::ABS_Y, -i32::from(distance)),
-        MoveDirection::Down => (AbsoluteAxisCode::ABS_Y, i32::from(distance)),
-        MoveDirection::Left => (AbsoluteAxisCode::ABS_X, -i32::from(distance)),
-        MoveDirection::Right => (AbsoluteAxisCode::ABS_X, i32::from(distance)),
+        MoveDirection::Up => (RelativeAxisCode::REL_Y, -i32::from(distance)),
+        MoveDirection::Down => (RelativeAxisCode::REL_Y, i32::from(distance)),
+        MoveDirection::Left => (RelativeAxisCode::REL_X, -i32::from(distance)),
+        MoveDirection::Right => (RelativeAxisCode::REL_X, i32::from(distance)),
     };
-    InputEvent::new_now(EventType::ABSOLUTE.0, axis.0, distance)
+    InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)
 }
