@@ -40,7 +40,7 @@ pub fn load_fwd() -> &'static HashMap<Behavior, Vec<u16>> {
 
             tmp.insert(Behavior::from_str(b), inputs);
         }
-
+        println!("keymap: {:#?}", tmp);
         tmp
     })
 }

@@ -25,7 +25,8 @@ impl EventDriver {
         keyboards::scan();
 
         KEYBOARDS.with_borrow_mut(|v| {
-            for (dev_idx, (_, device)) in v.iter().enumerate() {
+            for (dev_idx, (_, device)) in v.iter_mut().enumerate() {
+                device.grab().unwrap();
                 device.set_nonblocking(true).unwrap();
 
                 self.poll.registry().register(
@@ -58,10 +59,24 @@ impl EventDriver {
                         }
                     }
                 });
-
             }
         }
     }
+}
+
+
+pub fn is_triggered() -> bool {
+    PRESS_STATE.with_borrow_mut(|states| {
+        keymap::load_fwd() // Triggered as linear mode?
+            .get(&Behavior::LayerLinear).unwrap()
+            .iter()
+            .all(|&key| *states.get(key as usize).unwrap_or(&false))
+
+        || keymap::load_fwd()  // Or triggered as logarithmic mode?
+            .get(&Behavior::LayerLogarithmic).unwrap()
+            .iter()
+            .all(|&key| *states.get(key as usize).unwrap_or(&false))
+    })
 }
 
 
@@ -69,14 +84,7 @@ fn handle_events(events: FetchEventsSynced){
     let keymap_fwd = keymap::load_fwd();
 
     for ev in events {
-        if EventType::KEY != ev.event_type() {
-            continue;
-        }
-
-        let Some(related_behaviors) = keymap::load_rvs()
-            .get(ev.code() as usize)
-        else {continue};
-        if related_behaviors.len() == 0 {continue;}
+        if EventType::KEY != ev.event_type() {continue}
 
         PRESS_STATE.with_borrow_mut(|states| {
             let slot = match states.get_mut(ev.code() as usize) {
@@ -85,6 +93,16 @@ fn handle_events(events: FetchEventsSynced){
             };
             *slot = ev.value() > 0;
         });
+
+        if !is_triggered() {
+            keyboards::pass_through(ev);
+            continue;
+        }
+
+        let Some(related_behaviors) = keymap::load_rvs()
+            .get(ev.code() as usize)
+        else {continue};
+        if related_behaviors.len() == 0 {continue}
 
         ACTIVATED_SET.with_borrow_mut(|active| {
             if ev.value() > 0 { // On key down
