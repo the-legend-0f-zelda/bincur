@@ -95,7 +95,7 @@ fn handle_events(events: FetchEventsSynced){
                     PRESS_STATE.with_borrow(|press| {
                         if combo.iter()
                             .all(|&key| *press.get(key as usize).unwrap_or(&false))
-                        { active.insert(behavior.clone()); }
+                        {active.insert(behavior.clone());}
                     });
                 }
 
@@ -115,7 +115,7 @@ fn handle_events(events: FetchEventsSynced){
             }else { // On key up
                 for behavior in related_behaviors {
                     if !active.remove(behavior) {continue}
-                    if let Some(inv) = behavior.inverse() {
+                    if let Some(inv)=behavior.inverse() {
                         to_dispatch.push(inv);
                     }
                 }

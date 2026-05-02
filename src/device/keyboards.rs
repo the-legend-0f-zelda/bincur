@@ -38,7 +38,6 @@ pub(crate) fn scan() {
 
 pub(crate) fn pass_through(event: InputEvent) {
     VKEYBOARD_PASSTHROUGH.with_borrow_mut(|vkeyboard| {
-        println!("pass: {:#?}", event);
         vkeyboard.emit(&[event]).unwrap();
     });
 }

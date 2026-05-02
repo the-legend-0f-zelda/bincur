@@ -84,14 +84,17 @@ impl Behavior {
     pub fn dispatch(&self) -> bool {
         let events: Vec<InputEvent> = match self {
             Self::LinearModeOn => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
-                    cfg.mode = 1
-                });
+                if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LogarithmicModeOn)) {
+                    VMOUSE_CFG.with_borrow_mut(|cfg| {
+                        cfg.mode = 1;
+                        cfg.step_size = load_default().step_size;
+                    });
+                }
                 return true;
             },
             Self::LogarithmicModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
-                    cfg.mode = 2
+                    cfg.mode = 2;
                 });
                 return true;
             }
@@ -104,7 +107,11 @@ impl Behavior {
             Self::LogarithmicModeOff => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode == 2 {
-                        cfg.mode = 0;
+                        if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LinearModeOn)) {
+                            cfg.mode = 0;
+                        }else {
+                            cfg.mode = 1;
+                        }
                         cfg.step_size = load_default().step_size
                     }
                 });
@@ -130,7 +137,7 @@ impl Behavior {
                 vec![]
             },
 
-            Self::KeyUp => return true
+            Self::KeyUp => return false
         };
 
         if events.is_empty() {return false;}
@@ -148,25 +155,24 @@ impl Behavior {
 enum Direction {Up, Down, Left, Right,}
 
 fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
-    let step_size = VMOUSE_CFG.with_borrow(|cfg| cfg.step_size);
-
-    let (axis, distance) = match direction {
-        Direction::Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
-        Direction::Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
-        Direction::Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
-        Direction::Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
-    };
-
     VMOUSE_CFG.with_borrow_mut(|cfg| {
-        println!("mode: {}", cfg.mode);
-        return match cfg.mode {
-            1 => vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)],
+        let step_size = match cfg.mode {
+            1 => cfg.step_size,
             2 => {
                 cfg.step_size /= 2;
-                vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance/2)]
+                cfg.step_size
             }
-            _ => vec![]
-        }
+            _ => return vec![],
+        };
+
+        let (axis, distance) = match direction {
+            Direction::Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
+            Direction::Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
+            Direction::Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
+            Direction::Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
+        };
+
+        vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
     })
 }
 
