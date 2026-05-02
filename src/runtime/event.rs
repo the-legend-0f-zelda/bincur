@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
+use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -65,21 +65,6 @@ impl EventDriver {
 }
 
 
-pub fn is_triggered() -> bool {
-    PRESS_STATE.with_borrow_mut(|states| {
-        keymap::load_fwd() // Triggered as linear mode?
-            .get(&Behavior::LinearModeOn).unwrap()
-            .iter()
-            .all(|&key| *states.get(key as usize).unwrap_or(&false))
-
-        || keymap::load_fwd()  // Or triggered as logarithmic mode?
-            .get(&Behavior::LogarithmicModeOn).unwrap()
-            .iter()
-            .all(|&key| *states.get(key as usize).unwrap_or(&false))
-    })
-}
-
-
 fn handle_events(events: FetchEventsSynced){
     let keymap_fwd = keymap::load_fwd();
 
@@ -94,15 +79,10 @@ fn handle_events(events: FetchEventsSynced){
             *slot = ev.value() > 0;
         });
 
-        if !is_triggered() {
-            keyboards::pass_through(ev);
-            continue;
-        }
-
-        let Some(related_behaviors) = keymap::load_rvs()
-            .get(ev.code() as usize)
+        let Some(related_behaviors) = keymap::load_rvs().get(ev.code() as usize)
         else {continue};
-        if related_behaviors.len() == 0 {continue}
+
+        let mut to_dispatch:Vec<Behavior> = Vec::new();
 
         ACTIVATED_SET.with_borrow_mut(|active| {
             if ev.value() > 0 { // On key down
@@ -119,7 +99,6 @@ fn handle_events(events: FetchEventsSynced){
                     });
                 }
 
-                let mut to_dispatch:Vec<Behavior> = Vec::new();
                 let mut max_combo_len = 0;
 
                 for a in active.iter() {
@@ -133,18 +112,24 @@ fn handle_events(events: FetchEventsSynced){
                     }
                     to_dispatch.push(a.clone());
                 }
-
-                for behavior in to_dispatch {
-                    behavior.dispatch();
-                }
             }else { // On key up
                 for behavior in related_behaviors {
                     if !active.remove(behavior) {continue}
                     if let Some(inv) = behavior.inverse() {
-                        inv.dispatch();
+                        to_dispatch.push(inv);
                     }
                 }
             }
         });
+
+        if to_dispatch.is_empty() {
+            return pass_through(ev);
+        }
+
+        for behavior in to_dispatch {
+            if !behavior.dispatch() {
+                pass_through(ev);
+            }
+        }
     }
 }

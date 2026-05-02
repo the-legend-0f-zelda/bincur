@@ -2,10 +2,10 @@ use evdev::{KeyCode, RelativeAxisCode};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent};
 use std::cell::RefCell;
 use std::collections::HashSet;
-use MoveDirection::*;
+use Direction::*;
 
 use crate::setup;
-use crate::setup::vmouse::Config;
+use crate::setup::vmouse::{Config, load_default};
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
@@ -38,7 +38,9 @@ pub enum Behavior {
     ReleaseRight,
 
     ScrollUp,
-    ScrollDown
+    ScrollDown,
+
+    KeyUp
 }
 
 impl Behavior {
@@ -75,40 +77,49 @@ impl Behavior {
             Self::ClickRight => Some(Self::ReleaseRight),
             Self::LinearModeOn => Some(Self::LinearModeOff),
             Self::LogarithmicModeOn => Some(Self::LogarithmicModeOff),
-            _ => None
+            _ => Some(Self::KeyUp)
         }
     }
 
-    pub fn dispatch(&self) {
+    pub fn dispatch(&self) -> bool {
         let events: Vec<InputEvent> = match self {
             Self::LinearModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 1
                 });
-                return
+                return true;
             },
             Self::LogarithmicModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 2
                 });
-                return
+                return true;
             }
-            Self::LinearModeOff | Self::LogarithmicModeOff => {
+            Self::LinearModeOff => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
-                    cfg.mode = 0;
+                    if cfg.mode == 1 { cfg.mode = 0; }
                 });
-                return
-            }
+                return true;
+            },
+            Self::LogarithmicModeOff => {
+                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                    if cfg.mode == 2 {
+                        cfg.mode = 0;
+                        cfg.step_size = load_default().step_size
+                    }
+                });
+                return true;
+            },
 
-            Self::MoveUp => vec![new_move_mouse_event(Up)],
-            Self::MoveDown => vec![new_move_mouse_event(Down)],
-            Self::MoveLeft => vec![new_move_mouse_event(Left)],
-            Self::MoveRight => vec![new_move_mouse_event(Right)],
+            Self::MoveUp => new_move_mouse_event(Up),
+            Self::MoveDown => new_move_mouse_event(Down),
+            Self::MoveLeft => new_move_mouse_event(Left),
+            Self::MoveRight => new_move_mouse_event(Right),
 
-            Self::ClickLeft => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), 1)],
-            Self::ClickRight => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), 1)],
-            Self::ReleaseLeft => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), 0)],
-            Self::ReleaseRight => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), 0)],
+            Self::ClickLeft => new_click_mouse_event(Left, 1),
+            Self::ClickRight => new_click_mouse_event(Right, 1),
+            Self::ReleaseLeft => new_click_mouse_event(Left, 0),
+            Self::ReleaseRight => new_click_mouse_event(Right, 0),
 
             Self::ScrollUp => {
                 println!("dispatch! : scroll up");
@@ -118,31 +129,52 @@ impl Behavior {
                 println!("dispatch! : scroll down");
                 vec![]
             },
+
+            Self::KeyUp => return true
         };
+
+        if events.is_empty() {return false;}
 
         VMOUSE_DEVICE.with_borrow_mut(|device| {
             if let Err(e) = device.emit(&events) {
                 eprintln!("ERROR - emit failed: {}", e);
             }
         });
+
+        true
     }
 }
 
+enum Direction {Up, Down, Left, Right,}
 
-enum MoveDirection {
-    Up,
-    Down,
-    Left,
-    Right,
+fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
+    let step_size = VMOUSE_CFG.with_borrow(|cfg| cfg.step_size);
+
+    let (axis, distance) = match direction {
+        Direction::Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
+        Direction::Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
+        Direction::Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
+        Direction::Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
+    };
+
+    VMOUSE_CFG.with_borrow_mut(|cfg| {
+        println!("mode: {}", cfg.mode);
+        return match cfg.mode {
+            1 => vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)],
+            2 => {
+                cfg.step_size /= 2;
+                vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance/2)]
+            }
+            _ => vec![]
+        }
+    })
 }
 
-fn new_move_mouse_event(direction: MoveDirection) -> InputEvent {
-    let step_size = VMOUSE_CFG.with_borrow(|cfg| cfg.step_size);
-    let (axis, distance) = match direction {
-        MoveDirection::Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
-        MoveDirection::Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
-        MoveDirection::Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
-        MoveDirection::Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
-    };
-    InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)
+fn new_click_mouse_event(direction: Direction, value: i32) -> Vec<InputEvent> {
+    if VMOUSE_CFG.with_borrow(|cfg| cfg.mode) == 0 {return vec![]}
+    return match direction {
+        Left => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value)],
+        Right => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value)],
+        _ => vec![]
+    }
 }

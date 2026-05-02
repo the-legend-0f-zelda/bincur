@@ -30,14 +30,15 @@ pub(crate) fn scan() {
             |k| k.contains(evdev::KeyCode::KEY_A)
             && k.contains(evdev::KeyCode::KEY_ENTER)
             && k.contains(evdev::KeyCode::KEY_SPACE)
-        ){ KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
+        )
+        { KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
     }
 }
 
 
 pub(crate) fn pass_through(event: InputEvent) {
     VKEYBOARD_PASSTHROUGH.with_borrow_mut(|vkeyboard| {
-        println!("emit: {:#?}", event);
+        println!("pass: {:#?}", event);
         vkeyboard.emit(&[event]).unwrap();
     });
 }
