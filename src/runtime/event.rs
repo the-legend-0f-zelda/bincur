@@ -68,12 +68,12 @@ impl EventDriver {
 pub fn is_triggered() -> bool {
     PRESS_STATE.with_borrow_mut(|states| {
         keymap::load_fwd() // Triggered as linear mode?
-            .get(&Behavior::LayerLinear).unwrap()
+            .get(&Behavior::LinearModeOn).unwrap()
             .iter()
             .all(|&key| *states.get(key as usize).unwrap_or(&false))
 
         || keymap::load_fwd()  // Or triggered as logarithmic mode?
-            .get(&Behavior::LayerLogarithmic).unwrap()
+            .get(&Behavior::LogarithmicModeOn).unwrap()
             .iter()
             .all(|&key| *states.get(key as usize).unwrap_or(&false))
     })
@@ -134,12 +134,9 @@ fn handle_events(events: FetchEventsSynced){
                     to_dispatch.push(a.clone());
                 }
 
-                println!("syn report start");
                 for behavior in to_dispatch {
                     behavior.dispatch();
                 }
-                println!("syn report end");
-
             }else { // On key up
                 for behavior in related_behaviors {
                     if !active.remove(behavior) {continue}
