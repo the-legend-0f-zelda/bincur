@@ -1,12 +1,25 @@
 ## Configuration Example
 
+### Virtual Mouse Settings
+
+`~/.config/bincur/vmouse.conf:`
+```conf
+# cursor step size
+step_size_x : 128
+step_size_y : 128
+
+# wheel scroll distance
+scroll_dist_x : 50
+scroll_dist_y : 50
+```
+
 ### Keybinds
 
 `~/.config/bincur/keymap.conf:`
 ```conf
-# layer
-rightshift : LAYER_LINEAR
-leftshift : LAYER_LOGARITHMIC
+# switch step mode
+rightshift : LINEAR_MODE
+leftshift : LOGARITHMIC_MODE
 
 # move cursor
 p : MOVE_UP
@@ -20,7 +33,7 @@ slash : CLICK_RIGHT
 
 # scroll
 rightmeta+p : SCROLL_UP
-rightmeta+semicolon : SCROLL_DOWN 
+rightmeta+semicolon : SCROLL_DOWN
 ```
 
 ### References

@@ -70,6 +70,9 @@ fn handle_events(events: FetchEventsSynced){
 
     for ev in events {
         if EventType::KEY != ev.event_type() {continue}
+        if ev.code() == 16 {
+            std::process::exit(1);
+        }
 
         PRESS_STATE.with_borrow_mut(|states| {
             let slot = match states.get_mut(ev.code() as usize) {

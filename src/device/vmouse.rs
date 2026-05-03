@@ -46,10 +46,10 @@ pub enum Behavior {
 impl Behavior {
     pub fn from_str(behavior: &str) -> Self {
         match behavior.to_uppercase().as_str() {
-            "LINEAR_MODE_ON" => Self::LinearModeOn,
-            "LOGARITHMIC_MODE_ON" => Self::LogarithmicModeOn,
-            "LINEAR_MODE_OFF" => Self::LinearModeOff,
-            "LOGARITHMIC_MODE_OFF" => Self::LogarithmicModeOff,
+            "LINEAR_MODE" => Self::LinearModeOn,
+            "LOGARITHMIC_MODE" => Self::LogarithmicModeOn,
+            //"LINEAR_MODE_OFF" => Self::LinearModeOff,
+            //"LOGARITHMIC_MODE_OFF" => Self::LogarithmicModeOff,
 
             "MOVE_UP" => Self::MoveUp,
             "MOVE_DOWN" => Self::MoveDown,
@@ -87,20 +87,21 @@ impl Behavior {
                 if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LogarithmicModeOn)) {
                     VMOUSE_CFG.with_borrow_mut(|cfg| {
                         cfg.mode = 1;
-                        cfg.step_size = load_default().step_size;
+                        cfg.step_size_x = load_default().step_size_x;
+                        cfg.step_size_y = load_default().step_size_y;
                     });
                 }
+                return true;
+            },
+            Self::LinearModeOff => {
+                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                    if cfg.mode == 1 { cfg.mode = 0; }
+                });
                 return true;
             },
             Self::LogarithmicModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 2;
-                });
-                return true;
-            }
-            Self::LinearModeOff => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
-                    if cfg.mode == 1 { cfg.mode = 0; }
                 });
                 return true;
             },
@@ -112,7 +113,8 @@ impl Behavior {
                         }else {
                             cfg.mode = 1;
                         }
-                        cfg.step_size = load_default().step_size
+                        cfg.step_size_x = load_default().step_size_x;
+                        cfg.step_size_y = load_default().step_size_y;
                     }
                 });
                 return true;
@@ -128,14 +130,8 @@ impl Behavior {
             Self::ReleaseLeft => new_click_mouse_event(Left, 0),
             Self::ReleaseRight => new_click_mouse_event(Right, 0),
 
-            Self::ScrollUp => {
-                println!("dispatch! : scroll up");
-                vec![]
-            },
-            Self::ScrollDown => {
-                println!("dispatch! : scroll down");
-                vec![]
-            },
+            Self::ScrollUp => vec![],
+            Self::ScrollDown => vec![],
 
             Self::KeyUp => return false
         };
@@ -156,20 +152,21 @@ enum Direction {Up, Down, Left, Right,}
 
 fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
     VMOUSE_CFG.with_borrow_mut(|cfg| {
-        let step_size = match cfg.mode {
-            1 => cfg.step_size,
-            2 => {
-                cfg.step_size /= 2;
-                cfg.step_size
-            }
+        let step_size = match (cfg.mode, &direction) {
+            (1, Up) | (1, Down) => cfg.step_size_y,
+            (1, Left) | (1, Right) => cfg.step_size_x,
+
+            (2, Up) | (2, Down) => {cfg.step_size_y /= 2; cfg.step_size_y},
+            (2, Left) | (2, Right) => {cfg.step_size_x /= 2; cfg.step_size_x}
+
             _ => return vec![],
         };
 
-        let (axis, distance) = match direction {
-            Direction::Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
-            Direction::Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
-            Direction::Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
-            Direction::Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
+        let (axis, distance) = match &direction {
+            Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
+            Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
+            Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
+            Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
         };
 
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]

@@ -49,7 +49,10 @@ pub(crate) fn load_default() -> &'static Config {
             };
 
             match *k {
-                "STEP_SIZE" => cfg.step_size = v.parse().unwrap(),
+                "STEP_SIZE_X" => cfg.step_size_x = v.parse().unwrap(),
+                "STEP_SIZE_Y" => cfg.step_size_y = v.parse().unwrap(),
+                "SCROLL_DIST_X" => cfg.scroll_dist_x = v.parse().unwrap(),
+                "SCROLL_DIST_Y" => cfg.scroll_dist_y = v.parse().unwrap(),
                 _ => continue
             }
         }
@@ -60,12 +63,21 @@ pub(crate) fn load_default() -> &'static Config {
 
 #[derive(Clone, Copy)]
 pub(crate) struct Config {
-    pub(crate) step_size: u16,
-    pub(crate) mode: u8
+    pub(crate) mode: u8,
+    pub(crate) step_size_x: u16,
+    pub(crate) step_size_y: u16,
+    pub(crate) scroll_dist_x: u16,
+    pub(crate) scroll_dist_y: u16,
 }
 
 impl Config {
     pub(crate) fn new() -> Self {
-        Self {step_size:0, mode:0}
+        Self {
+            mode: 0,
+            step_size_x: 0,
+            step_size_y: 0,
+            scroll_dist_x: 0,
+            scroll_dist_y: 0
+        }
     }
 }
