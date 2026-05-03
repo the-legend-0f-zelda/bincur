@@ -91,19 +91,19 @@ impl Behavior {
                         cfg.step_size_y = load_default().step_size_y;
                     });
                 }
-                return true;
+                return false;
             },
             Self::LinearModeOff => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode == 1 { cfg.mode = 0; }
                 });
-                return true;
+                return false;
             },
             Self::LogarithmicModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 2;
                 });
-                return true;
+                return false;
             },
             Self::LogarithmicModeOff => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
@@ -117,7 +117,7 @@ impl Behavior {
                         cfg.step_size_y = load_default().step_size_y;
                     }
                 });
-                return true;
+                return false;
             },
 
             Self::MoveUp => new_move_mouse_event(Up),

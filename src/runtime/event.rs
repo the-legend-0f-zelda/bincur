@@ -70,9 +70,6 @@ fn handle_events(events: FetchEventsSynced){
 
     for ev in events {
         if EventType::KEY != ev.event_type() {continue}
-        if ev.code() == 16 {
-            std::process::exit(1);
-        }
 
         PRESS_STATE.with_borrow_mut(|states| {
             let slot = match states.get_mut(ev.code() as usize) {
@@ -106,7 +103,10 @@ fn handle_events(events: FetchEventsSynced){
 
                 for a in active.iter() {
                     let Some(combo) = keymap_fwd.get(a) else {continue};
-                    let len = combo.len();
+                    let len = match a {
+                        Behavior::LinearModeOn | Behavior::LogarithmicModeOn => 0,
+                        _ => combo.len()
+                    };
 
                     if len < max_combo_len {continue}
                     if len > max_combo_len {
