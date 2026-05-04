@@ -130,14 +130,10 @@ fn handle_events(events: FetchEventsSynced){
             }
         });
 
-        if to_dispatch.is_empty() {
-            return pass_through(ev);
-        }
-
+        let mut grab = false;
         for behavior in to_dispatch {
-            if !behavior.dispatch() {
-                pass_through(ev);
-            }
+            grab |= behavior.dispatch();
         }
+        if !grab {pass_through(ev);}
     }
 }
