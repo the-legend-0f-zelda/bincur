@@ -104,7 +104,12 @@ fn handle_events(events: FetchEventsSynced){
                 for a in active.iter() {
                     let Some(combo) = keymap_fwd.get(a) else {continue};
                     let len = match a {
-                        Behavior::LinearModeOn | Behavior::LogarithmicModeOn => 0,
+                        Behavior::LinearModeOn | Behavior::LogarithmicModeOn => {
+                            if active.contains(&Behavior::ClickLeft) {
+                                to_dispatch.push(a.clone())
+                            }
+                            0
+                        },
                         _ => combo.len()
                     };
 

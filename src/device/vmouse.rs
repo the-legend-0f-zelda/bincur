@@ -19,7 +19,6 @@ thread_local! {
     pub static VMOUSE_CFG: RefCell<Config> = RefCell::new(*setup::vmouse::load_default());
 }
 
-
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub enum Behavior {
     LinearModeOn,
