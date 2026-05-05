@@ -1,7 +1,7 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
-use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
+use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -72,11 +72,10 @@ fn handle_events(events: FetchEventsSynced){
         if EventType::KEY != ev.event_type() {continue}
 
         PRESS_STATE.with_borrow_mut(|states| {
-            let slot = match states.get_mut(ev.code() as usize) {
-                Some(slot) => slot,
+            match states.get_mut(ev.code() as usize) {
+                Some(slot) => *slot = ev.value() > 0,
                 None => return
             };
-            *slot = ev.value() > 0;
         });
 
         let Some(related_behaviors) = keymap::load_rvs().get(ev.code() as usize)
@@ -87,15 +86,25 @@ fn handle_events(events: FetchEventsSynced){
         ACTIVATED_SET.with_borrow_mut(|active| {
             if ev.value() > 0 { // On key down
                 for behavior in related_behaviors {
-                    let combo = match keymap_fwd.get(behavior) {
-                        Some(combo) => combo,
-                        None => continue
-                    };
+                    let Some(combo) = keymap_fwd.get(behavior)
+                    else {continue};
 
                     PRESS_STATE.with_borrow(|press| {
                         if combo.iter()
                             .all(|&key| *press.get(key as usize).unwrap_or(&false))
-                        {active.insert(behavior.clone());}
+                        {
+                            match behavior {
+                                &Behavior::LinearModeOn
+                                | &Behavior::LogarithmicModeOn => {
+                                    active.insert(behavior.clone());
+                                },
+                                _ => {
+                                    if device::vmouse::VMOUSE_CFG
+                                        .with_borrow(|cfg| cfg.mode) > 0
+                                    {active.insert(behavior.clone());}
+                                }
+                            }
+                        }
                     });
                 }
 
@@ -105,7 +114,7 @@ fn handle_events(events: FetchEventsSynced){
                     let Some(combo) = keymap_fwd.get(a) else {continue};
                     let len = match a {
                         Behavior::LinearModeOn | Behavior::LogarithmicModeOn => {
-                            if active.contains(&Behavior::ClickLeft) {
+                            if active.len() > 0 {
                                 to_dispatch.push(a.clone())
                             }
                             0
@@ -123,7 +132,7 @@ fn handle_events(events: FetchEventsSynced){
             }else { // On key up
                 for behavior in related_behaviors {
                     if !active.remove(behavior) {continue}
-                    if let Some(inv)=behavior.inverse() {
+                    if let Some(inv) = behavior.inverse() {
                         to_dispatch.push(inv);
                     }
                 }
@@ -134,6 +143,7 @@ fn handle_events(events: FetchEventsSynced){
         for behavior in to_dispatch {
             grab |= behavior.dispatch();
         }
+        println!("{}, {}, {}", ev.code(), ev.value(), grab);
         if !grab {pass_through(ev);}
     }
 }

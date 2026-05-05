@@ -38,6 +38,8 @@ pub enum Behavior {
 
     ScrollUp,
     ScrollDown,
+    ScrollLeft,
+    ScrollRight,
 
     KeyUp
 }
@@ -62,6 +64,8 @@ impl Behavior {
 
             "SCROLL_UP" => Self::ScrollUp,
             "SCROLL_DOWN" => Self::ScrollDown,
+            "SCROLL_LEFT" => Self::ScrollLeft,
+            "SCROLL_RIGHT" => Self::ScrollRight,
 
             _ => {
                 eprintln!("ERROR - unknown vmouse behvior: {}", behavior);
@@ -76,6 +80,12 @@ impl Behavior {
             Self::ClickRight => Some(Self::ReleaseRight),
             Self::LinearModeOn => Some(Self::LinearModeOff),
             Self::LogarithmicModeOn => Some(Self::LogarithmicModeOff),
+
+            Self::ScrollUp
+            | Self::ScrollDown
+            | Self::ScrollLeft
+            | Self::ScrollRight => None,
+
             _ => Some(Self::KeyUp)
         }
     }
@@ -107,10 +117,10 @@ impl Behavior {
             Self::LogarithmicModeOff => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode == 2 {
-                        if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LinearModeOn)) {
-                            cfg.mode = 0;
-                        }else {
+                        if ACTIVATED_SET.with_borrow(|c| c.contains(&Behavior::LinearModeOn)) {
                             cfg.mode = 1;
+                        }else {
+                            cfg.mode = 0;
                         }
                         cfg.step_size_x = load_default().step_size_x;
                         cfg.step_size_y = load_default().step_size_y;
@@ -131,8 +141,10 @@ impl Behavior {
 
             Self::ScrollUp => vec![],
             Self::ScrollDown => vec![],
+            Self::ScrollLeft => vec![],
+            Self::ScrollRight => vec![],
 
-            Self::KeyUp => return false
+            Self::KeyUp => return true
         };
 
         if events.is_empty() {return false;}
@@ -156,7 +168,7 @@ fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
             (1, Left) | (1, Right) => cfg.step_size_x,
 
             (2, Up) | (2, Down) => {cfg.step_size_y /= 2; cfg.step_size_y},
-            (2, Left) | (2, Right) => {cfg.step_size_x /= 2; cfg.step_size_x}
+            (2, Left) | (2, Right) => {cfg.step_size_x /= 2; cfg.step_size_x},
 
             _ => return vec![],
         };
