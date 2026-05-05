@@ -127,6 +127,7 @@ fn handle_events(events: FetchEventsSynced){
                         }
                     }
                 }
+
                 to_dispatch.extend(longest);
 
             }else { // On key up

@@ -98,6 +98,8 @@ impl Behavior {
                         cfg.mode = 1;
                         cfg.step_size_x = load_default().step_size_x;
                         cfg.step_size_y = load_default().step_size_y;
+                        cfg.scroll_dist_x = load_default().scroll_dist_x;
+                        cfg.scroll_dist_y = load_default().scroll_dist_y;
                     });
                 }
                 return false;
@@ -124,6 +126,8 @@ impl Behavior {
                         }
                         cfg.step_size_x = load_default().step_size_x;
                         cfg.step_size_y = load_default().step_size_y;
+                        cfg.scroll_dist_x = load_default().scroll_dist_x;
+                        cfg.scroll_dist_y = load_default().scroll_dist_y;
                     }
                 });
                 return false;
@@ -139,10 +143,10 @@ impl Behavior {
             Self::ReleaseLeft => new_click_event(Left, 0),
             Self::ReleaseRight => new_click_event(Right, 0),
 
-            Self::ScrollUp => vec![],
-            Self::ScrollDown => vec![],
-            Self::ScrollLeft => vec![],
-            Self::ScrollRight => vec![],
+            Self::ScrollUp => new_scroll_event(Up),
+            Self::ScrollDown => new_scroll_event(Down),
+            Self::ScrollLeft => new_scroll_event(Left),
+            Self::ScrollRight => new_scroll_event(Right),
 
             Self::KeyUp => return true
         };
@@ -193,7 +197,25 @@ fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
     }
 }
 
-fn new_scroll_mouse_event() -> Vec<InputEvent> {
+fn new_scroll_event(direction: Direction) -> Vec<InputEvent> {
+    VMOUSE_CFG.with_borrow_mut(|cfg| {
+        let scroll_dist = match (cfg.mode, &direction) {
+            (1, Up) | (1, Down) => cfg.scroll_dist_y,
+            (1, Left) | (1, Right) => cfg.scroll_dist_x,
 
-    vec![]
+            (2, Up) | (2, Down) => {cfg.scroll_dist_y /= 2; cfg.scroll_dist_y},
+            (2, Left) | (2, Right) => {cfg.scroll_dist_x /= 2; cfg.scroll_dist_x},
+
+            _ => return vec![],
+        };
+
+        let (axis, distance) = match &direction {
+            Up => (RelativeAxisCode::REL_WHEEL, i32::from(scroll_dist)),
+            Down => (RelativeAxisCode::REL_WHEEL, -i32::from(scroll_dist)),
+            Left => (RelativeAxisCode::REL_HWHEEL, -i32::from(scroll_dist)),
+            Right => (RelativeAxisCode::REL_HWHEEL, i32::from(scroll_dist)),
+        };
+
+        vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
+    })
 }
