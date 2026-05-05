@@ -93,9 +93,9 @@ fn handle_events(events: FetchEventsSynced){
                         if combo.iter()
                             .all(|&key| *press.get(key as usize).unwrap_or(&false))
                         {
-                            match behavior {
-                                &Behavior::LinearModeOn
-                                | &Behavior::LogarithmicModeOn => {
+                            match *behavior {
+                                Behavior::LinearModeOn
+                                | Behavior::LogarithmicModeOn => {
                                     active.insert(behavior.clone());
                                 },
                                 _ => {
@@ -109,26 +109,26 @@ fn handle_events(events: FetchEventsSynced){
                 }
 
                 let mut max_combo_len = 0;
+                let mut longest: Vec<Behavior> = Vec::new();
 
                 for a in active.iter() {
-                    let Some(combo) = keymap_fwd.get(a) else {continue};
-                    let len = match a {
+                    match a {
                         Behavior::LinearModeOn | Behavior::LogarithmicModeOn => {
-                            if active.len() > 0 {
-                                to_dispatch.push(a.clone())
+                            to_dispatch.push(a.clone());
+                        }
+                        _ => {
+                            let len = keymap_fwd.get(a).map_or(0, |c| c.len());
+                            if len < max_combo_len {continue}
+                            if len > max_combo_len {
+                                longest.clear();
+                                max_combo_len = len;
                             }
-                            0
-                        },
-                        _ => combo.len()
-                    };
-
-                    if len < max_combo_len {continue}
-                    if len > max_combo_len {
-                        to_dispatch.clear();
-                        max_combo_len = len;
+                            longest.push(a.clone());
+                        }
                     }
-                    to_dispatch.push(a.clone());
                 }
+                to_dispatch.extend(longest);
+
             }else { // On key up
                 for behavior in related_behaviors {
                     if !active.remove(behavior) {continue}
@@ -143,7 +143,6 @@ fn handle_events(events: FetchEventsSynced){
         for behavior in to_dispatch {
             grab |= behavior.dispatch();
         }
-        println!("{}, {}, {}", ev.code(), ev.value(), grab);
         if !grab {pass_through(ev);}
     }
 }

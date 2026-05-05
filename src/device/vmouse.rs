@@ -129,15 +129,15 @@ impl Behavior {
                 return false;
             },
 
-            Self::MoveUp => new_move_mouse_event(Up),
-            Self::MoveDown => new_move_mouse_event(Down),
-            Self::MoveLeft => new_move_mouse_event(Left),
-            Self::MoveRight => new_move_mouse_event(Right),
+            Self::MoveUp => new_move_event(Up),
+            Self::MoveDown => new_move_event(Down),
+            Self::MoveLeft => new_move_event(Left),
+            Self::MoveRight => new_move_event(Right),
 
-            Self::ClickLeft => new_click_mouse_event(Left, 1),
-            Self::ClickRight => new_click_mouse_event(Right, 1),
-            Self::ReleaseLeft => new_click_mouse_event(Left, 0),
-            Self::ReleaseRight => new_click_mouse_event(Right, 0),
+            Self::ClickLeft => new_click_event(Left, 1),
+            Self::ClickRight => new_click_event(Right, 1),
+            Self::ReleaseLeft => new_click_event(Left, 0),
+            Self::ReleaseRight => new_click_event(Right, 0),
 
             Self::ScrollUp => vec![],
             Self::ScrollDown => vec![],
@@ -161,7 +161,7 @@ impl Behavior {
 
 enum Direction {Up, Down, Left, Right,}
 
-fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
+fn new_move_event(direction: Direction) -> Vec<InputEvent> {
     VMOUSE_CFG.with_borrow_mut(|cfg| {
         let step_size = match (cfg.mode, &direction) {
             (1, Up) | (1, Down) => cfg.step_size_y,
@@ -184,11 +184,16 @@ fn new_move_mouse_event(direction: Direction) -> Vec<InputEvent> {
     })
 }
 
-fn new_click_mouse_event(direction: Direction, value: i32) -> Vec<InputEvent> {
+fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
     if VMOUSE_CFG.with_borrow(|cfg| cfg.mode) == 0 {return vec![]}
     return match direction {
         Left => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value)],
         Right => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value)],
         _ => vec![]
     }
+}
+
+fn new_scroll_mouse_event() -> Vec<InputEvent> {
+
+    vec![]
 }
