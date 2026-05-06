@@ -50,6 +50,16 @@ pub(crate) fn load_default() -> &'static Config {
             };
 
             match *k {
+                "GRAB_LINEAR" => {
+                    if v.to_uppercase().eq("TRUE") {
+                        cfg.grab_linear = true;
+                    }
+                },
+                "GRAB_LOGARITHMIC" => {
+                    if v.to_uppercase().eq("TRUE") {
+                        cfg.grab_logarithmic = true;
+                    }
+                },
                 "STEP_SIZE_X" => cfg.step_size_x = v.parse().unwrap(),
                 "STEP_SIZE_Y" => cfg.step_size_y = v.parse().unwrap(),
                 "SCROLL_DIST_X" => cfg.scroll_dist_x = v.parse().unwrap(),
@@ -65,6 +75,8 @@ pub(crate) fn load_default() -> &'static Config {
 #[derive(Clone, Copy)]
 pub(crate) struct Config {
     pub(crate) mode: u8,
+    pub(crate) grab_linear: bool,
+    pub(crate) grab_logarithmic: bool,
     pub(crate) step_size_x: u16,
     pub(crate) step_size_y: u16,
     pub(crate) scroll_dist_x: u16,
@@ -75,6 +87,8 @@ impl Config {
     pub(crate) fn new() -> Self {
         Self {
             mode: 0,
+            grab_linear: false,
+            grab_logarithmic: false,
             step_size_x: 0,
             step_size_y: 0,
             scroll_dist_x: 0,

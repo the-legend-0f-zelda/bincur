@@ -93,22 +93,22 @@ impl Behavior {
     pub fn dispatch(&self) -> bool {
         let events: Vec<InputEvent> = match self {
             Self::LinearModeOn => {
-                if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LogarithmicModeOn)) {
-                    VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                    if ACTIVATED_SET.with_borrow(|c| !c.contains(&Behavior::LogarithmicModeOn)) {
                         cfg.mode = 1;
                         cfg.step_size_x = load_default().step_size_x;
                         cfg.step_size_y = load_default().step_size_y;
                         cfg.scroll_dist_x = load_default().scroll_dist_x;
                         cfg.scroll_dist_y = load_default().scroll_dist_y;
-                    });
-                }
-                return false;
+                    }
+                    cfg.grab_linear
+                });
             },
             Self::LinearModeOff => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode == 1 { cfg.mode = 0; }
+                    cfg.grab_linear
                 });
-                return false;
             },
             Self::LogarithmicModeOn => {
                 VMOUSE_CFG.with_borrow_mut(|cfg| {
@@ -117,7 +117,7 @@ impl Behavior {
                 return false;
             },
             Self::LogarithmicModeOff => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode == 2 {
                         if ACTIVATED_SET.with_borrow(|c| c.contains(&Behavior::LinearModeOn)) {
                             cfg.mode = 1;
@@ -129,8 +129,8 @@ impl Behavior {
                         cfg.scroll_dist_x = load_default().scroll_dist_x;
                         cfg.scroll_dist_y = load_default().scroll_dist_y;
                     }
+                    cfg.grab_logarithmic
                 });
-                return false;
             },
 
             Self::MoveUp => new_move_event(Up),
