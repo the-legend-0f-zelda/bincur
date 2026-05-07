@@ -141,9 +141,11 @@ fn handle_events(events: FetchEventsSynced){
         });
 
         let mut grab = false;
+        //println!("{:#?}", to_dispatch);
         for behavior in to_dispatch {
             grab |= behavior.dispatch();
         }
+        println!("{}, {}, {}", ev.code(), ev.value(), grab);
         if !grab {pass_through(ev);}
     }
 }
