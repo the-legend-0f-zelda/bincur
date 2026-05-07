@@ -2,6 +2,10 @@ use std::{fs::File, io::{BufRead, BufReader}, sync::OnceLock};
 use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
 use crate::setup::config;
 
+pub const ABS_MIN: i32 = 0;
+pub const ABS_MAX: i32 = 32767;
+pub const ABS_INIT: i32 = ABS_MAX / 2;
+
 pub static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
 pub static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
 pub(crate) static VMOUSE_CFG_DEFAULT: OnceLock<Config> = OnceLock::new();
@@ -19,8 +23,6 @@ pub fn get_keys() -> &'static AttributeSet<KeyCode> {
 pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
     VMOUSE_REL_AXES.get_or_init(|| {
         let mut axes = AttributeSet::<RelativeAxisCode>::new();
-        axes.insert(RelativeAxisCode::REL_X);
-        axes.insert(RelativeAxisCode::REL_Y);
         axes.insert(RelativeAxisCode::REL_WHEEL);
         axes.insert(RelativeAxisCode::REL_HWHEEL);
         axes
@@ -77,10 +79,10 @@ pub(crate) struct Config {
     pub(crate) mode: u8,
     pub(crate) grab_linear: bool,
     pub(crate) grab_logarithmic: bool,
-    pub(crate) step_size_x: u16,
-    pub(crate) step_size_y: u16,
-    pub(crate) scroll_dist_x: u16,
-    pub(crate) scroll_dist_y: u16,
+    pub(crate) step_size_x: i32,
+    pub(crate) step_size_y: i32,
+    pub(crate) scroll_dist_x: i32,
+    pub(crate) scroll_dist_y: i32,
 }
 
 impl Config {

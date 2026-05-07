@@ -1,22 +1,26 @@
-use evdev::{KeyCode, RelativeAxisCode};
+use evdev::{AbsInfo, AbsoluteAxisCode, KeyCode, RelativeAxisCode, UinputAbsSetup};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use Direction::*;
 
 use crate::setup;
-use crate::setup::vmouse::{Config, load_default};
+use crate::setup::vmouse::{ABS_INIT, ABS_MAX, ABS_MIN, Config, load_default};
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
-    pub static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new(
+    pub static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new({
+        let abs_info = AbsInfo::new(ABS_INIT, ABS_MIN, ABS_MAX, 0, 0, 0);
         VirtualDevice::builder().unwrap()
             .name("bincur")
+            .with_absolute_axis(&UinputAbsSetup::new(AbsoluteAxisCode::ABS_X, abs_info)).unwrap()
+            .with_absolute_axis(&UinputAbsSetup::new(AbsoluteAxisCode::ABS_Y, abs_info)).unwrap()
             .with_relative_axes(setup::vmouse::get_rel_axes()).unwrap()
             .with_keys(setup::vmouse::get_keys()).unwrap()
             .build().unwrap()
-    );
+    });
     pub static VMOUSE_CFG: RefCell<Config> = RefCell::new(*setup::vmouse::load_default());
+    pub static VMOUSE_POS: RefCell<(i32, i32)> = RefCell::new((ABS_INIT, ABS_INIT));
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -111,10 +115,10 @@ impl Behavior {
                 });
             },
             Self::LogarithmicModeOn => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 2;
+                    cfg.grab_logarithmic
                 });
-                return false;
             },
             Self::LogarithmicModeOff => {
                 return VMOUSE_CFG.with_borrow_mut(|cfg| {
@@ -177,14 +181,16 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
             _ => return vec![],
         };
 
-        let (axis, distance) = match &direction {
-            Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
-            Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
-            Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
-            Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
-        };
+        VMOUSE_POS.with_borrow_mut(|(x, y)| {
+            let (axis, value) = match &direction {
+                Up    => { *y = (*y - step_size).clamp(ABS_MIN, ABS_MAX); (AbsoluteAxisCode::ABS_Y, *y) },
+                Down  => { *y = (*y + step_size).clamp(ABS_MIN, ABS_MAX); (AbsoluteAxisCode::ABS_Y, *y) },
+                Left  => { *x = (*x - step_size).clamp(ABS_MIN, ABS_MAX); (AbsoluteAxisCode::ABS_X, *x) },
+                Right => { *x = (*x + step_size).clamp(ABS_MIN, ABS_MAX); (AbsoluteAxisCode::ABS_X, *x) },
+            };
 
-        vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
+            vec![InputEvent::new_now(EventType::ABSOLUTE.0, axis.0, value)]
+        })
     })
 }
 
@@ -210,10 +216,10 @@ fn new_scroll_event(direction: Direction) -> Vec<InputEvent> {
         };
 
         let (axis, distance) = match &direction {
-            Up => (RelativeAxisCode::REL_WHEEL, i32::from(scroll_dist)),
-            Down => (RelativeAxisCode::REL_WHEEL, -i32::from(scroll_dist)),
-            Left => (RelativeAxisCode::REL_HWHEEL, -i32::from(scroll_dist)),
-            Right => (RelativeAxisCode::REL_HWHEEL, i32::from(scroll_dist)),
+            Up => (RelativeAxisCode::REL_WHEEL, scroll_dist),
+            Down => (RelativeAxisCode::REL_WHEEL, -scroll_dist),
+            Left => (RelativeAxisCode::REL_HWHEEL, -scroll_dist),
+            Right => (RelativeAxisCode::REL_HWHEEL, scroll_dist),
         };
 
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
