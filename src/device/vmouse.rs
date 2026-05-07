@@ -111,10 +111,10 @@ impl Behavior {
                 });
             },
             Self::LogarithmicModeOn => {
-                VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     cfg.mode = 2;
+                    cfg.grab_logarithmic
                 });
-                return false;
             },
             Self::LogarithmicModeOff => {
                 return VMOUSE_CFG.with_borrow_mut(|cfg| {
