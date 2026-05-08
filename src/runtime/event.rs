@@ -95,7 +95,8 @@ fn handle_events(events: FetchEventsSynced){
                         {
                             match *behavior {
                                 Behavior::LinearModeOn
-                                | Behavior::LogarithmicModeOn => {
+                                | Behavior::LogarithmicModeOn
+                                | Behavior::ScrollModeOn => {
                                     active.insert(behavior.clone());
                                 },
                                 _ => {
@@ -113,7 +114,9 @@ fn handle_events(events: FetchEventsSynced){
 
                 for a in active.iter() {
                     match a {
-                        Behavior::LinearModeOn | Behavior::LogarithmicModeOn => {
+                        Behavior::LinearModeOn
+                        | Behavior::LogarithmicModeOn
+                        | Behavior::ScrollModeOn => {
                             to_dispatch.push(a.clone());
                         }
                         _ => {
