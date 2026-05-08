@@ -81,10 +81,10 @@ impl Behavior {
             Self::LinearModeOn => Some(Self::LinearModeOff),
             Self::LogarithmicModeOn => Some(Self::LogarithmicModeOff),
 
-            Self::ScrollUp
-            | Self::ScrollDown
-            | Self::ScrollLeft
-            | Self::ScrollRight => None,
+            // Self::ScrollUp
+            // | Self::ScrollDown
+            // | Self::ScrollLeft
+            // | Self::ScrollRight => None,
 
             _ => Some(Self::KeyUp)
         }
@@ -178,10 +178,10 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
         };
 
         let (axis, distance) = match &direction {
-            Up => (RelativeAxisCode::REL_Y, -i32::from(step_size)),
-            Down => (RelativeAxisCode::REL_Y, i32::from(step_size)),
-            Left => (RelativeAxisCode::REL_X, -i32::from(step_size)),
-            Right => (RelativeAxisCode::REL_X, i32::from(step_size)),
+            Up => (RelativeAxisCode::REL_Y, -step_size),
+            Down => (RelativeAxisCode::REL_Y, step_size),
+            Left => (RelativeAxisCode::REL_X, -step_size),
+            Right => (RelativeAxisCode::REL_X, step_size),
         };
 
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
@@ -210,10 +210,10 @@ fn new_scroll_event(direction: Direction) -> Vec<InputEvent> {
         };
 
         let (axis, distance) = match &direction {
-            Up => (RelativeAxisCode::REL_WHEEL, i32::from(scroll_dist)),
-            Down => (RelativeAxisCode::REL_WHEEL, -i32::from(scroll_dist)),
-            Left => (RelativeAxisCode::REL_HWHEEL, -i32::from(scroll_dist)),
-            Right => (RelativeAxisCode::REL_HWHEEL, i32::from(scroll_dist)),
+            Up => (RelativeAxisCode::REL_WHEEL, scroll_dist),
+            Down => (RelativeAxisCode::REL_WHEEL, -scroll_dist),
+            Left => (RelativeAxisCode::REL_HWHEEL, -scroll_dist),
+            Right => (RelativeAxisCode::REL_HWHEEL, scroll_dist),
         };
 
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]

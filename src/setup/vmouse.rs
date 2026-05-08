@@ -77,10 +77,10 @@ pub(crate) struct Config {
     pub(crate) mode: u8,
     pub(crate) grab_linear: bool,
     pub(crate) grab_logarithmic: bool,
-    pub(crate) step_size_x: u16,
-    pub(crate) step_size_y: u16,
-    pub(crate) scroll_dist_x: u16,
-    pub(crate) scroll_dist_y: u16,
+    pub(crate) step_size_x: i32,
+    pub(crate) step_size_y: i32,
+    pub(crate) scroll_dist_x: i32,
+    pub(crate) scroll_dist_y: i32,
 }
 
 impl Config {
