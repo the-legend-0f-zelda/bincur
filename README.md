@@ -4,36 +4,56 @@
 
 `~/.config/bincur/vmouse.conf:`
 ```conf
-# cursor step size
+# Grab mode trigger keys
+grab_linear : false
+grab_logarithmic : true
+grab_scroll : true
+
+# Cursor step size
 step_size_x : 128
 step_size_y : 128
 
-# wheel scroll distance
-scroll_dist_x : 50
-scroll_dist_y : 50
+# Wheel scroll distance
+scroll_dist_x : 2
+scroll_dist_y : 2
 ```
 
 ### Keybinds
 
 `~/.config/bincur/keymap.conf:`
 ```conf
-# switch step mode
-rightshift : LINEAR_MODE
-leftshift : LOGARITHMIC_MODE
+# 0. Terminate process
+leftctrl+q : EXIT
 
-# move cursor
-p : MOVE_UP
-semicolon : MOVE_DOWN
-apostrophe : MOVE_RIGHT
-l : MOVE_LEFT
+# 1. Trigger virtual mouse mode
 
-# click
-dot : CLICK_LEFT
-slash : CLICK_RIGHT
+# 1-1. For standard keyboard layout
+leftmeta : LINEAR_MODE
+leftmeta+leftshift : LOGARITHMIC_MODE
+leftmeta+c : SCROLL_MODE
 
-# scroll
-rightmeta+p : SCROLL_UP
-rightmeta+semicolon : SCROLL_DOWN
+# 1-2. For HHKB layout
+#leftalt : LINEAR_MODE
+#leftalt+leftshift : LOGARITHMIC_MODE
+#leftalt+c : SCROLL_MODE
+
+# 2. Move cursor or scroll
+
+# 2-1. Intuitive
+i : MOVE_UP
+k : MOVE_DOWN
+j : MOVE_LEFT
+l : MOVE_RIGHT
+
+# 2-2. Vim
+# k : MOVE_UP
+# j : MOVE_DOWN
+# h : MOVE_LEFT
+# l : MOVE_RIGHT
+
+# 3. Mouse click
+space : CLICK_LEFT
+semicolon : CLICK_RIGHT
 ```
 
 #### References
