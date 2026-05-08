@@ -46,19 +46,23 @@ impl EventDriver {
                 let token = ev.token();
                 let kbd_idx = token.0;
 
-                KEYBOARDS.with_borrow_mut(|keyboards| {
+                let needs_reset = KEYBOARDS.with_borrow_mut(|keyboards| {
                     let target = &mut keyboards.get_mut(kbd_idx).unwrap().1;
                     loop {
                         match target.fetch_events() {
                             Ok(iter) => handle_events(iter),
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
+                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return false,
                             Err(e) => {
                                 eprintln!("fetch_events error (kbd_idx={kbd_idx}): {}", e);
-                                break;
+                                return true;
                             }
                         }
                     }
                 });
+
+                if needs_reset {
+                    return Err(io::Error::new(io::ErrorKind::Interrupted, "reset required"))
+                }
             }
         }
     }
@@ -96,7 +100,8 @@ fn handle_events(events: FetchEventsSynced){
                             match *behavior {
                                 Behavior::LinearModeOn
                                 | Behavior::LogarithmicModeOn
-                                | Behavior::ScrollModeOn => {
+                                | Behavior::ScrollModeOn
+                                | Behavior::Exit => {
                                     active.insert(behavior.clone());
                                 },
                                 _ => {
@@ -116,7 +121,8 @@ fn handle_events(events: FetchEventsSynced){
                     match a {
                         Behavior::LinearModeOn
                         | Behavior::LogarithmicModeOn
-                        | Behavior::ScrollModeOn => {
+                        | Behavior::ScrollModeOn
+                        | Behavior::Exit => {
                             to_dispatch.push(a.clone());
                         }
                         _ => {

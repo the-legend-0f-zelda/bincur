@@ -21,6 +21,8 @@ thread_local! {
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub enum Behavior {
+    Exit,
+
     LinearModeOn,
     LogarithmicModeOn,
 
@@ -40,22 +42,17 @@ pub enum Behavior {
     ReleaseLeft,
     ReleaseRight,
 
-    // ScrollUp,
-    // ScrollDown,
-    // ScrollLeft,
-    // ScrollRight,
-
     KeyUp
 }
 
 impl Behavior {
     pub fn from_str(behavior: &str) -> Self {
         match behavior.to_uppercase().as_str() {
+            "EXIT" => Self::Exit,
+
             "LINEAR_MODE" => Self::LinearModeOn,
             "LOGARITHMIC_MODE" => Self::LogarithmicModeOn,
             "SCROLL_MODE" => Self::ScrollModeOn,
-            //"LINEAR_MODE_OFF" => Self::LinearModeOff,
-            //"LOGARITHMIC_MODE_OFF" => Self::LogarithmicModeOff,
 
             "MOVE_UP" => Self::MoveUp,
             "MOVE_DOWN" => Self::MoveDown,
@@ -66,11 +63,6 @@ impl Behavior {
             "CLICK_RIGHT" => Self::ClickRight,
             "RELEASE_LEFT" => Self::ReleaseLeft,
             "RELEASE_RIGHT" => Self::ReleaseRight,
-
-            // "SCROLL_UP" => Self::ScrollUp,
-            // "SCROLL_DOWN" => Self::ScrollDown,
-            // "SCROLL_LEFT" => Self::ScrollLeft,
-            // "SCROLL_RIGHT" => Self::ScrollRight,
 
             _ => {
                 eprintln!("ERROR - unknown vmouse behvior: {}", behavior);
@@ -88,17 +80,17 @@ impl Behavior {
             Self::LogarithmicModeOn => Some(Self::LogarithmicModeOff),
             Self::ScrollModeOn => Some(Self::ScrollModeOff),
 
-            // Self::ScrollUp
-            // | Self::ScrollDown
-            // | Self::ScrollLeft
-            // | Self::ScrollRight => None,
-
             _ => Some(Self::KeyUp)
         }
     }
 
     pub fn dispatch(&self) -> bool {
         let events: Vec<InputEvent> = match self {
+            Self::Exit => {
+                println!("Exit bincur.");
+                std::process::exit(1);
+            }
+
             Self::LinearModeOn => {
                 return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode < 1 {
@@ -178,11 +170,6 @@ impl Behavior {
             Self::ReleaseLeft => new_click_event(Left, 0),
             Self::ReleaseRight => new_click_event(Right, 0),
 
-            // Self::ScrollUp => new_scroll_event(Up),
-            // Self::ScrollDown => new_scroll_event(Down),
-            // Self::ScrollLeft => new_scroll_event(Left),
-            // Self::ScrollRight => new_scroll_event(Right),
-
             Self::KeyUp => return true
         };
 
@@ -201,7 +188,6 @@ impl Behavior {
 enum Direction {Up, Down, Left, Right,}
 
 fn new_move_event(direction: Direction) -> Vec<InputEvent> {
-
     VMOUSE_CFG.with_borrow_mut(|cfg| {
         let (axis, step_size) = match (cfg.mode, &direction) {
             (1, Up) => (RelativeAxisCode::REL_Y, -cfg.step_size_y),
@@ -221,14 +207,6 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
 
             _ => return vec![],
         };
-
-        // let (axis, distance) = match &direction {
-        //     Up => (RelativeAxisCode::REL_Y, -step_size),
-        //     Down => (RelativeAxisCode::REL_Y, step_size),
-        //     Left => (RelativeAxisCode::REL_X, -step_size),
-        //     Right => (RelativeAxisCode::REL_X, step_size),
-        // };
-
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, step_size)]
     })
 }
@@ -241,26 +219,3 @@ fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
         _ => vec![]
     }
 }
-
-// fn new_scroll_event(direction: Direction) -> Vec<InputEvent> {
-//     VMOUSE_CFG.with_borrow_mut(|cfg| {
-//         let scroll_dist = match (cfg.mode, &direction) {
-//             (1, Up) | (1, Down) => cfg.scroll_dist_y,
-//             (1, Left) | (1, Right) => cfg.scroll_dist_x,
-
-//             (2, Up) | (2, Down) => {cfg.scroll_dist_y /= 2; cfg.scroll_dist_y},
-//             (2, Left) | (2, Right) => {cfg.scroll_dist_x /= 2; cfg.scroll_dist_x},
-
-//             _ => return vec![],
-//         };
-
-//         let (axis, distance) = match &direction {
-//             Up => (RelativeAxisCode::REL_WHEEL, scroll_dist),
-//             Down => (RelativeAxisCode::REL_WHEEL, -scroll_dist),
-//             Left => (RelativeAxisCode::REL_HWHEEL, -scroll_dist),
-//             Right => (RelativeAxisCode::REL_HWHEEL, scroll_dist),
-//         };
-
-//         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, distance)]
-//     })
-// }
