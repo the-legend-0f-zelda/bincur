@@ -1,20 +1,34 @@
 use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
+use udev::MonitorBuilder;
 use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
 pub struct EventDriver {
     pub events:Events,
+    monitor: udev::MonitorSocket,
     poll: Poll
 }
 
 impl EventDriver {
 
     pub fn new() -> Self {
+        let monitor = MonitorBuilder::new().unwrap()
+            .match_subsystem("input").unwrap()
+            .listen().unwrap();
+        let poll = Poll::new().unwrap();
+
+        poll.registry().register(
+            &mut SourceFd(&monitor.as_raw_fd()),
+            Token(0),
+            Interest::READABLE
+        ).unwrap();
+
         let mut zelf = Self{
             events: Events::with_capacity(16),
-            poll: Poll::new().unwrap()
+            monitor,
+            poll
         };
 
         zelf.reset();
@@ -22,31 +36,66 @@ impl EventDriver {
     }
 
     pub fn reset(&mut self) {
+        KEYBOARDS.with_borrow_mut(|v| {
+            for (_, device) in v.iter_mut() {
+                let _r = self.poll.registry()
+                    .deregister(&mut SourceFd(&device.as_raw_fd()));
+            }
+        });
+
         keyboards::scan();
 
         KEYBOARDS.with_borrow_mut(|v| {
-            for (dev_idx, (_, device)) in v.iter_mut().enumerate() {
-                device.grab().unwrap();
-                device.set_nonblocking(true).unwrap();
+            v.retain_mut(|(path, device)| {
+                if let Err(e) = device.grab() {
+                    eprintln!("grab failed ({}): {e}", path.display());
+                    return false;
+                }
+                if let Err(e) = device.set_nonblocking(true) {
+                    eprintln!("set_nonblocking failed ({}): {e}", path.display());
+                    return false;
+                }
+                true
+            });
 
-                self.poll.registry().register(
+            for (dev_idx, (path, device)) in v.iter_mut().enumerate() {
+                if let Err(e) = self.poll.registry().register(
                     &mut SourceFd(&device.as_raw_fd()),
-                    Token(dev_idx),
+                    Token(dev_idx+1),
                     Interest::READABLE
-                ).unwrap()
+                ) {
+                    eprintln!("poll register failed ({}): {e}", path.display());
+                }
             }
         });
+
+        ACTIVATED_SET.with_borrow_mut(|active| active.clear());
+        PRESS_STATE.with_borrow_mut(|press| press.iter_mut().for_each(|s| *s=false));
     }
 
     pub fn run(&mut self) -> io::Result<()> {
         loop {
             self.poll.poll(&mut self.events, None)?;
+            let mut needs_reset = false;
 
             for ev in self.events.iter() {
                 let token = ev.token();
-                let kbd_idx = token.0;
 
-                let needs_reset = KEYBOARDS.with_borrow_mut(|keyboards| {
+                if token.0 == 0 {
+                    for dev in self.monitor.iter() {
+                        if dev.syspath().to_string_lossy().contains("/virtual/input") { continue }
+                        let Some(node) = dev.devnode() else { continue };
+                        if !node.to_string_lossy().starts_with("/dev/input/event") { continue }
+                        match dev.event_type() {
+                            udev::EventType::Add | udev::EventType::Remove => needs_reset = true,
+                            _ => {}
+                        }
+                    }
+                    continue;
+                }
+
+                needs_reset |= KEYBOARDS.with_borrow_mut(|keyboards| {
+                    let kbd_idx = token.0 - 1;
                     let target = &mut keyboards.get_mut(kbd_idx).unwrap().1;
                     loop {
                         match target.fetch_events() {
@@ -59,10 +108,11 @@ impl EventDriver {
                         }
                     }
                 });
+            }
 
-                if needs_reset {
-                    return Err(io::Error::new(io::ErrorKind::Interrupted, "reset required"))
-                }
+            if needs_reset {
+                //for x in self.monitor.iter() {eprintln!("{:#?}", x)}
+                return Err(io::Error::new(io::ErrorKind::Interrupted, "reset required"))
             }
         }
     }

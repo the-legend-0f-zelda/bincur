@@ -25,7 +25,10 @@ thread_local! {
 
 
 pub(crate) fn scan() {
+    KEYBOARDS.with_borrow_mut(|v| {v.clear();});
+
     for (path, dev) in evdev::enumerate() {
+        if dev.name().map_or(false, |n| n.starts_with("bincur")) {continue}
         if dev.supported_keys().map_or(false,
             |k| k.contains(evdev::KeyCode::KEY_A)
             && k.contains(evdev::KeyCode::KEY_ENTER)

@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 mio = { version = "1", features = ["os-poll", "os-ext"] }
 evdev = "0.13.2"
+udev = "0.9.3"

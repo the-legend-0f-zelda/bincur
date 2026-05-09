@@ -1,4 +1,4 @@
-## Configuration Example
+## Configuration Example (purely my preference)
 
 ### Virtual Mouse Settings
 
@@ -28,14 +28,14 @@ leftctrl+q : EXIT
 # 1. Trigger virtual mouse mode
 
 # 1-1. For standard keyboard layout
-leftmeta : LINEAR_MODE
-leftmeta+leftshift : LOGARITHMIC_MODE
-leftmeta+c : SCROLL_MODE
+leftalt : LINEAR_MODE
+leftalt+leftshift : LOGARITHMIC_MODE
+leftalt+c : SCROLL_MODE
 
 # 1-2. For HHKB layout
-#leftalt : LINEAR_MODE
-#leftalt+leftshift : LOGARITHMIC_MODE
-#leftalt+c : SCROLL_MODE
+#leftmeta : LINEAR_MODE
+#leftmeta+leftshift : LOGARITHMIC_MODE
+#leftmeta+c : SCROLL_MODE
 
 # 2. Move cursor or scroll
 
