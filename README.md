@@ -1,5 +1,6 @@
 # Binary Cursor
----
+> Linux only (uses `evdev` / `uinput`)
+
 
 ## Intro
 
@@ -25,10 +26,32 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 
 - **No overlay** — Nothing extra is drawn on the screen. You press keys, and the cursor moves. That's it.
 - **Hold-to-trigger** — To switch quickly between regular typing and momentary mouse control without finger gymnastics, every mode is triggered by **holding** the key, not by toggling.
-- **Per-key distinction** — Built on the `evdev` crate, using its raw scancodes for key identification. Every key is uniquely distinguishable — for example, **left and right Control** can be bound separately.
+- **Per-key distinction** — Built on the [evdev](https://github.com/emberian/evdev) crate, using its raw scancodes(Follows the Linux kernel scancodes) for key identification. Every key is uniquely distinguishable — for example, **left and right Control** can be bound separately.
 - **Hot-plug support** — Detects keyboard connect/disconnect events at runtime and reconfigures automatically. No need to restart after plugging in a new keyboard via USB or Bluetooth.
 - **Selective grab** — You can decide whether each mode-trigger key is grabbed (see [Virtual Mouse Settings](#virtual-mouse-settings)). For instance, if Shift is set as a mode trigger, leaving it ungrabbed lets it serve double duty as both a trigger and the normal case-shift key.
 
+## Tested on
+  - **OS**: EndeavourOS (Arch-based), x86_64
+  - **Kernel**: 6.19.11-arch1-1
+  - **Compositor**: Hyprland 0.54.3 (Wayland)
+
+## Build & Install
+
+### Dependencies
+  - Rust 1.85+ (edition 2024)
+  - `pkg-config`
+  - `libudev` development headers
+    - Debian/Ubuntu: `sudo apt install libudev-dev pkg-config`
+    - Fedora: `sudo dnf install systemd-devel pkgconf`
+    - Arch: already included with `systemd` (default)
+
+### Build
+```bash
+git clone https://github.com/the-legend-0f-zelda/bincur
+cd bincur
+cargo build --release
+```
+Binary will be at `target/release/bincur`.
 
 ## Configuration & Examples (purely my preference)
 
