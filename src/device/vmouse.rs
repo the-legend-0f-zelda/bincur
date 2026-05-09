@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use Direction::*;
 
 use crate::setup;
-use crate::setup::vmouse::{Config, load_default};
+use crate::setup::vmouse::Config;
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
@@ -95,10 +95,7 @@ impl Behavior {
                 return VMOUSE_CFG.with_borrow_mut(|cfg| {
                     if cfg.mode < 1 {
                         cfg.mode = 1;
-                        cfg.step_size_x = load_default().step_size_x;
-                        cfg.step_size_y = load_default().step_size_y;
-                        cfg.scroll_dist_x = load_default().scroll_dist_x;
-                        cfg.scroll_dist_y = load_default().scroll_dist_y;
+                        cfg.reset_xy();
                     }
                     cfg.grab_linear
                 });
@@ -126,10 +123,7 @@ impl Behavior {
                         }else {
                             cfg.mode = 0;
                         }
-                        cfg.step_size_x = load_default().step_size_x;
-                        cfg.step_size_y = load_default().step_size_y;
-                        cfg.scroll_dist_x = load_default().scroll_dist_x;
-                        cfg.scroll_dist_y = load_default().scroll_dist_y;
+                        cfg.reset_xy();
                     }
                     cfg.grab_logarithmic
                 });
@@ -148,10 +142,7 @@ impl Behavior {
                             cfg.mode = 2;
                         }else if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
                             cfg.mode = 1;
-                            cfg.step_size_x = load_default().step_size_x;
-                            cfg.step_size_y = load_default().step_size_y;
-                            cfg.scroll_dist_x = load_default().scroll_dist_x;
-                            cfg.scroll_dist_y = load_default().scroll_dist_y;
+                            cfg.reset_xy();
                         }else {
                             cfg.mode = 0;
                         }
@@ -195,10 +186,10 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
             (1, Left) => (RelativeAxisCode::REL_X, -cfg.step_size_x),
             (1, Right) => (RelativeAxisCode::REL_X, cfg.step_size_x),
 
-            (2, Up) => {cfg.step_size_y /= 2; (RelativeAxisCode::REL_Y, -cfg.step_size_y)},
-            (2, Down) => {cfg.step_size_y /= 2; (RelativeAxisCode::REL_Y, cfg.step_size_y)},
-            (2, Left) => {cfg.step_size_x /= 2; (RelativeAxisCode::REL_X, -cfg.step_size_x)},
-            (2, Right) => {cfg.step_size_x /= 2; (RelativeAxisCode::REL_X, cfg.step_size_x)},
+            (2, Up) => {cfg.step_size_y = (cfg.step_size_y+1)>>1; (RelativeAxisCode::REL_Y, -cfg.step_size_y)},
+            (2, Down) => {cfg.step_size_y = (cfg.step_size_y+1)>>1; (RelativeAxisCode::REL_Y, cfg.step_size_y)},
+            (2, Left) => {cfg.step_size_x = (cfg.step_size_x+1)>>1; (RelativeAxisCode::REL_X, -cfg.step_size_x)},
+            (2, Right) => {cfg.step_size_x = (cfg.step_size_x+1)>>1; (RelativeAxisCode::REL_X, cfg.step_size_x)},
 
             (3, Up) => (RelativeAxisCode::REL_WHEEL, cfg.scroll_dist_y),
             (3, Down) => (RelativeAxisCode::REL_WHEEL, -cfg.scroll_dist_y),

@@ -90,4 +90,12 @@ impl Config {
             scroll_dist_y: 0
         }
     }
+
+    pub(crate) fn reset_xy(&mut self) {
+        let default = load_default();
+        self.step_size_x = default.step_size_x;
+        self.step_size_y = default.step_size_y;
+        self.scroll_dist_x = default.scroll_dist_x;
+        self.scroll_dist_y = default.scroll_dist_y;
+    }
 }

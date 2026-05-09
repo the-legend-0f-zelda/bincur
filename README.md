@@ -16,7 +16,7 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 | Mode | Description |
 | --- | --- |
 | **Linear** | The cursor moves by a fixed step at a constant rate. |
-| **Logarithmic** | Each input moves the cursor by half the previous distance (`128px → 64px → 32px ...`). Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
+| **Logarithmic** | Each input moves the cursor by half the previous distance (`128 → 64 → 32 ...`). Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
 | **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. |
 
 > Left and right mouse clicks work in any mode.
