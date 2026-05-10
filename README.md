@@ -35,7 +35,34 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
   - **Kernel**: 6.19.11-arch1-1
   - **Compositor**: Hyprland 0.54.3 (Wayland)
 
-## Build & Install
+## 설치
+
+권한 설정, 바이너리 설치, 디폴트 설정 파일 작성, systemd user 서비스 등록까지 한 번에 처리하는 헬퍼 스크립트가 있습니다.
+
+```bash
+./scripts/setup.sh
+```
+> **루트로 실행하지 마세요.** 스크립트가 root 권한이 필요한 단계만 내부에서 `sudo`로 호출합니다. (시작 시 `sudo -v`로 자격증명을 캐시하므로 비밀번호는 처음 한 번만 묻습니다.)
+
+스크립트가 수행하는 단계:
+
+1. **`input` 그룹에 유저 추가** — `/dev/input/event*` 접근권 (재로그인 필요)
+2. **udev 룰 작성** (`/etc/udev/rules.d/99-bincur-uinput.rules`) — `/dev/uinput`을 `input` 그룹에 0660으로 풀어줌
+3. **바이너리 설치** — `target/release/bincur` → `~/.local/bin/bincur` (먼저 `cargo build --release` 필요)
+4. **디폴트 설정 파일 작성** — `~/.config/bincur/vmouse.conf`, `~/.config/bincur/keymap.conf` (이미 존재하면 건너뜀)
+5. **systemd user 서비스 등록 및 시작** — `~/.config/systemd/user/bincur.service`
+
+복원:
+
+```bash
+./scripts/setup.sh --uninstall
+```
+
+서비스 중지/제거, 바이너리 삭제, udev 룰 삭제까지 되돌립니다. 단 사용자 설정 파일(`~/.config/bincur/*.conf`)과 `input` 그룹 멤버십은 유지합니다 (다른 도구가 의존할 수 있음).
+
+사용법 확인: `./scripts/setup.sh --help`
+
+## Build
 
 ### Dependencies
   - Rust 1.85+ (edition 2024)
@@ -45,7 +72,6 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
     - Fedora: `sudo dnf install systemd-devel pkgconf`
     - Arch: already included with `systemd` (default)
 
-### Build
 ```bash
 git clone https://github.com/the-legend-0f-zelda/bincur
 cd bincur
