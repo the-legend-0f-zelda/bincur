@@ -55,19 +55,19 @@ Binary will be at `target/release/bincur`.
 
 ## Configuration & Examples (purely my preference)
 
-설정 파일들은 `BINCUR_CONF_HOME` 환경변수로 설정된 위치(우선순위) 또는 `~/.config/bincur`(디폴트) 아래에 두면 적용됩니다.
+Place the config files under the directory pointed to by the `BINCUR_CONF_HOME` environment variable (takes precedence) or `~/.config/bincur` (default).
 
-- `vmouse.conf` : 에뮬레이션되는 가상 마우스의 프로퍼티
-- `keymap.conf` : 키바인드 설정
+- `vmouse.conf` — properties of the emulated virtual mouse
+- `keymap.conf` — keybind configuration
 
-아래 설정 예시들은 손이 타이핑을 위해 준비된 상태(각 손가락이 `a`, `s`, `d`, `f`, `j`, `k`, `l`, `;` 위에 있음)에서 움직임을 최소화 하는 방향으로 설정했습니다.
+The examples below are tuned to minimize finger movement from the typing home position (fingers resting on `a`, `s`, `d`, `f`, `j`, `k`, `l`, `;`).
 
 ### Virtual Mouse Settings
 
 `~/.config/bincur/vmouse.conf:`
 ```conf
 # Grab mode trigger keys
-# TRUE로 설정하면 해당 모드에 바인드된 키 콤보 입력 이벤트가 소모되고 백그라운드로 전파되지 않습니다.
+# When set to TRUE, key-combo input events bound to the corresponding mode are consumed and not propagated to other applications.
 grab_linear : FALSE
 grab_logarithmic : TRUE
 grab_scroll : TRUE
@@ -111,11 +111,11 @@ space : CLICK_LEFT
 semicolon : CLICK_RIGHT
 ```
 
-#### 팁
+#### Tips
 
-- 예시에서 `LOGARITHMIC_MODE`와 `SCROLL_MODE`를 `leftalt`와의 조합으로 설정한 이유는 각각 `leftshift`, `c`만 눌렀을 때 `vmouse.conf`에 의해 grab되는 것을 방지하기 위함입니다.
-- 예시에 키를 소문자, 벨류를 대문자로 써두었지만 내부적으로 대소문자 구분은 전혀 하지 않기 때문에 어느 쪽을 어떻게 쓰든 상관이 없습니다. 카멜 케이스처럼 섞어 쓰는 방식도 가능합니다.
-- 키바인드에 사용하고 싶은 키의 명칭을 확인하려면 [References](#references)의 **Key names**를 참고하세요. 각 키코드 문자에서 **`KEY_`** 부분을 제외한 나머지가 바인드에 사용 가능한 키 이름이 됩니다. (예: `KEY_LEFTCTRL` → `LEFTCTRL`)
+- In the example, `LOGARITHMIC_MODE` and `SCROLL_MODE` are bound to combinations with `leftalt` to prevent `leftshift` or `c` alone from being grabbed by `vmouse.conf`.
+- Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
+- To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
 
 ### References
 
