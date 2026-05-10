@@ -29,7 +29,7 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 ### Demo (Copy & Paste)
 **Full mouse control — movement, scrolling, clicks, and drag — keyboard only.**
 
-![demo](https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e)
+https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
 
 
 ### Features
