@@ -36,9 +36,9 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 | **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. |
 
 > [!IMPORTANT]
-> For uniform cursor movement, disable mouse acceleration in your system settings.
-> Left and right mouse clicks work in any mode.
-> When keybinds overlap, trigger priority is scroll(highest) → logarithmic → linear.
+> - For uniform cursor movement, disable **mouse acceleration** in your system settings.
+> - Left and right mouse clicks work in any mode.
+> - When keybinds overlap, trigger priority is **scroll(highest)** → **logarithmic** → **linear**.
 
 #### Other characteristics
 
@@ -84,6 +84,7 @@ A helper script handles permission setup, binary installation, default config fi
 ```bash
 ./scripts/setup.sh
 ```
+> [!IMPORTANT]
 > **Don't run as root.** The script invokes `sudo` internally only for steps that actually need root. (It caches credentials with `sudo -v` at start, so you'll only be prompted for your password once.)
 
 What the script does:
