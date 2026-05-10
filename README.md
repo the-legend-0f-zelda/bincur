@@ -1,6 +1,9 @@
 # Binary Cursor
 > Linux only (uses `evdev` / `uinput`)
 
+> [!IMPORTANT]
+> For uniform cursor movement, disable mouse acceleration in your system settings.
+
 ## Table of Contents
 
 - [Intro](#intro)
