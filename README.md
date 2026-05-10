@@ -5,6 +5,7 @@
 
 - [Intro](#intro)
   - [What's this](#whats-this)
+  - [Demo (Copy & Paste)](#demo-copy--paste)
   - [Features](#features)
 - [Tested on](#tested-on)
 - [Getting Started](#getting-started)
@@ -13,7 +14,7 @@
 - [Configuration & Examples](#configuration--examples-purely-my-preference)
   - [Virtual Mouse Settings](#virtual-mouse-settings)
   - [Keybinds](#keybinds)
-  - [References](#references)
+- [References](#references)
 
 <br>
 
@@ -24,6 +25,12 @@
 Built to fully control the mouse using only the keyboard.
 
 Inspired by the grid mode of existing solutions like warpd and mouseless, this tool blends that idea with a natural mode in a simplified form, aiming to give you the feeling of **owning the cursor in real time**.
+
+### Demo (Copy & Paste)
+**Full mouse control — movement, scrolling, clicks, and drag — keyboard only.**
+
+![demo](https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e)
+
 
 ### Features
 
@@ -177,7 +184,7 @@ semicolon : CLICK_RIGHT
 - Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
 - To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
 
-### References
+## References
 
 - [Key names (evdev scancodes)](https://docs.rs/evdev/0.13.2/src/evdev/scancodes.rs.html#26-579) — valid key identifiers for the left side of `:`
 
