@@ -11,7 +11,7 @@
 - [Getting Started](#getting-started)
   - [Build](#build)
   - [Setup](#setup)
-- [Configuration & Examples](#configuration--examples-purely-my-preference)
+- [Configuration & Examples](#configuration--examples)
   - [Virtual Mouse Settings](#virtual-mouse-settings)
   - [Keybinds](#keybinds)
 - [References](#references)
@@ -26,11 +26,14 @@ Built to fully control the mouse using only the keyboard.
 
 Inspired by the grid mode of existing solutions like warpd and mouseless, this tool blends that idea with a natural mode in a simplified form, aiming to give you the feeling of **owning the cursor in real time**.
 
+<br>
+
 ### Demo (Copy & Paste)
 **Full mouse control — movement, scrolling, clicks, and drag — keyboard only.**
 
 https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
 
+<br>
 
 ### Features
 
@@ -49,6 +52,7 @@ https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
 
 #### Other characteristics
 
+- **Composable primitives** — Bind only a few basic mouse actions to keys, and their combinations work as-is. For instance, moving the cursor while holding click produces a drag, and pressing two adjacent direction keys together produces diagonal movement.
 - **No overlay** — Nothing extra is drawn on the screen. You press keys, and the cursor moves. That's it.
 - **Hold-to-trigger** — To switch quickly between regular typing and momentary mouse control without finger gymnastics, every mode is triggered by **holding** the key, not by toggling.
 - **Per-key distinction** — Built on the [evdev](https://github.com/emberian/evdev) crate, using its raw scancodes(Follows the Linux kernel scancodes) for key identification. Every key is uniquely distinguishable — for example, **left and right Control** can be bound separately.
@@ -84,6 +88,8 @@ cargo build --release
 ```
 Binary will be at `target/release/bincur`.
 
+<br>
+
 ### Setup
 
 A helper script handles permission setup, binary installation, default config file creation, and systemd user service registration in one shot.
@@ -101,14 +107,14 @@ What the script does:
 3. **Install the binary** — `target/release/bincur` → `~/.local/bin/bincur` (run `cargo build --release` first)
 4. **Write default config files** — `~/.config/bincur/vmouse.conf`, `~/.config/bincur/keymap.conf` (skipped if they already exist)
 5. **Register the systemd user service** — `~/.config/systemd/user/bincur.service`
-
-After setup, start it with:
+---
+After setup, **start** it with:
 
 ```bash
 systemctl --user start bincur
 ```
 
-To revert:
+To **revert**:
 
 ```bash
 ./scripts/setup.sh --uninstall
@@ -120,7 +126,7 @@ For usage info: `./scripts/setup.sh --help`
 
 <br>
 
-## Configuration & Examples (purely my preference)
+## Configuration & Examples
 
 Place the config files under the directory pointed to by the `BINCUR_CONF_HOME` environment variable (takes precedence) or `~/.config/bincur` (default).
 
@@ -184,8 +190,7 @@ semicolon : CLICK_RIGHT
 - Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
 - To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
 
+---
 ## References
 
 - [Key names (evdev scancodes)](https://docs.rs/evdev/0.13.2/src/evdev/scancodes.rs.html#26-579) — valid key identifiers for the left side of `:`
-
----
