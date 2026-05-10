@@ -7,8 +7,9 @@
   - [What's this](#whats-this)
   - [Features](#features)
 - [Tested on](#tested-on)
-- [Build](#build)
-- [Setup](#setup)
+- [Getting Started](#getting-started)
+  - [Build](#build)
+  - [Setup](#setup)
 - [Configuration & Examples](#configuration--examples-purely-my-preference)
   - [Virtual Mouse Settings](#virtual-mouse-settings)
   - [Keybinds](#keybinds)
@@ -47,9 +48,12 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
   - **Kernel**: 6.19.11-arch1-1
   - **Compositor**: Hyprland 0.54.3 (Wayland)
 
-## Build
 
-### Dependencies
+## Getting Started
+
+### Build
+
+#### Dependencies
   - Rust 1.85+ (edition 2024)
   - `pkg-config`
   - `libudev` development headers
@@ -64,7 +68,7 @@ cargo build --release
 ```
 Binary will be at `target/release/bincur`.
 
-## Setup
+### Setup
 
 A helper script handles permission setup, binary installation, default config file creation, and systemd user service registration in one shot.
 
