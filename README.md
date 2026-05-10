@@ -79,7 +79,13 @@ What the script does:
 2. **Write the udev rule** (`/etc/udev/rules.d/99-bincur-uinput.rules`) — exposes `/dev/uinput` to the `input` group with mode 0660
 3. **Install the binary** — `target/release/bincur` → `~/.local/bin/bincur` (run `cargo build --release` first)
 4. **Write default config files** — `~/.config/bincur/vmouse.conf`, `~/.config/bincur/keymap.conf` (skipped if they already exist)
-5. **Register and start the systemd user service** — `~/.config/systemd/user/bincur.service`
+5. **Register the systemd user service** — `~/.config/systemd/user/bincur.service`
+
+After setup, start it with:
+
+```bash
+systemctl --user start bincur
+```
 
 To revert:
 

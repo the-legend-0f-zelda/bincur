@@ -88,7 +88,7 @@ impl Behavior {
         let events: Vec<InputEvent> = match self {
             Self::Exit => {
                 println!("Exit bincur.");
-                std::process::exit(1);
+                std::process::exit(0);
             }
 
             Self::LinearModeOn => {

@@ -26,7 +26,7 @@ Usage: $0 [--uninstall|--help]
                   2. Install udev rule for /dev/uinput
                   3. Install binary to $BIN_DEST
                   4. Write default configs to $CONF_DIR (skipped if present)
-                  5. Install + enable systemd user service ($SERVICE_FILE)
+                  5. Install systemd user service ($SERVICE_FILE)
 
   --uninstall   Reverse the setup. Existing user configs in $CONF_DIR are kept.
                 Group membership in '$GROUP' is also kept since other tools may rely on it.
@@ -142,15 +142,10 @@ Description=Binary Cursor - keyboard-controlled mouse emulator
 Type=simple
 ExecStart=$BIN_DEST
 Restart=on-failure
-
-[Install]
-WantedBy=default.target
 EOF
     echo "[+] Installed user service: $SERVICE_FILE"
 
     systemctl --user daemon-reload
-    systemctl --user enable --now bincur.service
-    echo "[+] Enabled and started bincur.service"
 
     echo
     echo "Setup complete."
