@@ -1,9 +1,6 @@
 # Binary Cursor
 > Linux only (uses `evdev` / `uinput`)
 
-> [!IMPORTANT]
-> For uniform cursor movement, disable mouse acceleration in your system settings.
-
 ## Table of Contents
 
 - [Intro](#intro)
@@ -17,6 +14,8 @@
   - [Virtual Mouse Settings](#virtual-mouse-settings)
   - [Keybinds](#keybinds)
   - [References](#references)
+
+<br>
 
 ## Intro
 
@@ -36,7 +35,10 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 | **Logarithmic** | Each input moves the cursor by half the previous distance (`128 → 64 → 32 ...`). Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
 | **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. |
 
+> [!IMPORTANT]
+> For uniform cursor movement, disable mouse acceleration in your system settings.
 > Left and right mouse clicks work in any mode.
+> When keybinds overlap, trigger priority is scroll(highest) → logarithmic → linear.
 
 #### Other characteristics
 
@@ -46,11 +48,15 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 - **Hot-plug support** — Detects keyboard connect/disconnect events at runtime and reconfigures automatically. No need to restart after plugging in a new keyboard via USB or Bluetooth.
 - **Selective grab** — You can decide whether each mode-trigger key is grabbed (see [Virtual Mouse Settings](#virtual-mouse-settings)). For instance, if Shift is set as a mode trigger, leaving it ungrabbed lets it serve double duty as both a trigger and the normal case-shift key.
 
+<br>
+
 ## Tested on
   - **OS**: EndeavourOS (Arch-based), x86_64
   - **Kernel**: 6.19.11-arch1-1
   - **Compositor**: Hyprland 0.54.3 (Wayland)
 
+
+<br>
 
 ## Getting Started
 
@@ -103,6 +109,8 @@ To revert:
 This stops/removes the service, deletes the binary, and removes the udev rule. User config files (`~/.config/bincur/*.conf`) and `input` group membership are preserved (other tools may depend on them).
 
 For usage info: `./scripts/setup.sh --help`
+
+<br>
 
 ## Configuration & Examples (purely my preference)
 
