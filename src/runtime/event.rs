@@ -201,14 +201,20 @@ fn handle_events(events: FetchEventsSynced){
             }
         });
 
-        let mut grab = false;
-        if value > 0 {
+        if to_dispatch.is_empty() {
+            return pass_through(ev);
+        }
+
+        // KeyDown => Starts with grab=false, grab if any of the dispatch result is true
+        // KeyUp => Starts with grab=true, grab if every dispatch result is true
+        let mut grab = value < 1;
+        if grab {
             for behavior in to_dispatch {
-                grab |= behavior.dispatch();
+                grab &= behavior.dispatch();
             }
         }else {
             for behavior in to_dispatch {
-                grab &= behavior.dispatch();
+                grab |= behavior.dispatch();
             }
         }
         if !grab {pass_through(ev);}
