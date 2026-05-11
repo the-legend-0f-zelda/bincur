@@ -124,21 +124,23 @@ fn handle_events(events: FetchEventsSynced){
 
     for ev in events {
         if EventType::KEY != ev.event_type() {continue}
+        let code = ev.code() as usize;
+        let value = ev.value();
 
         PRESS_STATE.with_borrow_mut(|states| {
-            match states.get_mut(ev.code() as usize) {
-                Some(slot) => *slot = ev.value() > 0,
+            match states.get_mut(code) {
+                Some(slot) => *slot = value > 0,
                 None => return
             };
         });
 
-        let Some(related_behaviors) = keymap::load_rvs().get(ev.code() as usize)
+        let Some(related_behaviors) = keymap::load_rvs().get(code)
         else {continue};
 
         let mut to_dispatch:Vec<Behavior> = Vec::new();
 
         ACTIVATED_SET.with_borrow_mut(|active| {
-            if ev.value() > 0 { // On key down
+            if value > 0 { // On key down
                 for behavior in related_behaviors {
                     let Some(combo) = keymap_fwd.get(behavior)
                     else {continue};
@@ -200,8 +202,14 @@ fn handle_events(events: FetchEventsSynced){
         });
 
         let mut grab = false;
-        for behavior in to_dispatch {
-            grab |= behavior.dispatch();
+        if value > 0 {
+            for behavior in to_dispatch {
+                grab |= behavior.dispatch();
+            }
+        }else {
+            for behavior in to_dispatch {
+                grab &= behavior.dispatch();
+            }
         }
         if !grab {pass_through(ev);}
     }
