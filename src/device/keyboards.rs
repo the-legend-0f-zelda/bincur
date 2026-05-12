@@ -5,7 +5,7 @@ thread_local! {
     pub(crate) static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
     /// Pressed state indexed by evdev scancode (KEY_RESERVED=0 .. KEY_MICMUTE=248).
-    pub(crate) static PRESS_STATE:RefCell<[bool; 249]> = RefCell::new([false; 249]);
+    pub(crate) static PRESS_STATE:RefCell<[(bool, bool); 249]> = RefCell::new([(false, false); 249]);
 
     /// Virtual device for forwarding unbound key events.
     /// evdev 0.13.2: highest defined key code is 0x2e7 (BTN_TRIGGER_HAPPY40)

@@ -70,7 +70,7 @@ impl EventDriver {
         });
 
         ACTIVATED_SET.with_borrow_mut(|active| active.clear());
-        PRESS_STATE.with_borrow_mut(|press| press.iter_mut().for_each(|s| *s=false));
+        PRESS_STATE.with_borrow_mut(|press| press.iter_mut().for_each(|s| *s=(false, false) ));
     }
 
     pub fn run(&mut self) -> io::Result<()> {
@@ -111,7 +111,6 @@ impl EventDriver {
             }
 
             if needs_reset {
-                //for x in self.monitor.iter() {eprintln!("{:#?}", x)}
                 return Err(io::Error::new(io::ErrorKind::Interrupted, "reset required"))
             }
         }
@@ -129,7 +128,7 @@ fn handle_events(events: FetchEventsSynced){
 
         PRESS_STATE.with_borrow_mut(|states| {
             match states.get_mut(code) {
-                Some(slot) => *slot = value > 0,
+                Some(slot) => slot.0 = value > 0,
                 None => return
             };
         });
@@ -147,7 +146,7 @@ fn handle_events(events: FetchEventsSynced){
 
                     PRESS_STATE.with_borrow(|press| {
                         if combo.iter()
-                            .all(|&key| *press.get(key as usize).unwrap_or(&false))
+                            .all(|&key| press.get(key as usize).unwrap_or( &(false, false) ).0 )
                         {
                             match *behavior {
                                 Behavior::LinearModeOn
@@ -201,22 +200,23 @@ fn handle_events(events: FetchEventsSynced){
             }
         });
 
-        if to_dispatch.is_empty() {
-            return pass_through(ev);
+        let mut grab = false;
+        for behavior in to_dispatch {
+            grab |= behavior.dispatch();
         }
 
-        // KeyDown => Starts with grab=false, grab if any of the dispatch result is true
-        // KeyUp => Starts with grab=true, grab if every dispatch result is true
-        let mut grab = value < 1;
-        if grab {
-            for behavior in to_dispatch {
-                grab &= behavior.dispatch();
+        PRESS_STATE.with_borrow_mut(|s| {
+            let Some(slot) = s.get_mut(code)
+            else {return};
+
+            if value > 0 {
+                slot.1 = grab;
+            }else {
+                grab = slot.1;
+                slot.1 = false;
             }
-        }else {
-            for behavior in to_dispatch {
-                grab |= behavior.dispatch();
-            }
-        }
+        });
+
         if !grab {pass_through(ev);}
     }
 }
