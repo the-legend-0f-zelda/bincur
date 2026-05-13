@@ -134,7 +134,10 @@ fn handle_events(events: FetchEventsSynced){
         });
 
         let Some(related_behaviors) = keymap::load_rvs().get(code)
-        else {continue};
+        else {
+            pass_through(ev);
+            continue;
+        };
 
         let mut to_dispatch:Vec<Behavior> = Vec::new();
 
@@ -154,6 +157,7 @@ fn handle_events(events: FetchEventsSynced){
                                 | Behavior::ScrollModeOn
                                 | Behavior::Exit => {
                                     active.insert(behavior.clone());
+                                    to_dispatch.push(behavior.clone());
                                 },
                                 _ => {
                                     if device::vmouse::VMOUSE_CFG
@@ -174,8 +178,8 @@ fn handle_events(events: FetchEventsSynced){
                         | Behavior::LogarithmicModeOn
                         | Behavior::ScrollModeOn
                         | Behavior::Exit => {
-                            to_dispatch.push(a.clone());
-                        }
+                            continue;
+                        },
                         _ => {
                             let len = keymap_fwd.get(a).map_or(0, |c| c.len());
                             if len < max_combo_len {continue}
