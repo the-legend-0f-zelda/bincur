@@ -1,20 +1,23 @@
 use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}, str::FromStr, sync::OnceLock};
+use evdev::InputEvent;
+
 use crate::{device::vmouse::Behavior, setup::config};
 
-static KEYMAP_FWD:OnceLock<HashMap<Behavior, Vec<u16>>> = OnceLock::new();
+static KEYMAP_FWD:OnceLock<HashMap<Behavior, Vec<usize>>> = OnceLock::new();
 static KEYMAP_RVS:OnceLock<[Vec<Behavior>; 249]> = OnceLock::new();
+static REWIRE_CFG:OnceLock<[u16; 249]> = OnceLock::new();
 
-pub fn load_fwd() -> &'static HashMap<Behavior, Vec<u16>> {
+pub fn load_fwd() -> &'static HashMap<Behavior, Vec<usize>> {
     KEYMAP_FWD.get_or_init(|| {
         let keymap_file:File = File::open(
             config::resolve_path().join("keymap.conf")
         ).unwrap();
 
-        let mut tmp:HashMap<Behavior, Vec<u16>> = HashMap::new();
+        let mut tmp:HashMap<Behavior, Vec<usize>> = HashMap::new();
 
         for line in BufReader::new(keymap_file).lines(){
             let line = line.unwrap();
-            let cleaned = line.replace(" ", "");
+            let cleaned = line.replace(" ", "").to_uppercase();
 
             if cleaned.is_empty() || cleaned.starts_with("#") {
                 continue;
@@ -26,8 +29,8 @@ pub fn load_fwd() -> &'static HashMap<Behavior, Vec<u16>> {
                   std::process::exit(1);
             };
 
-            let inputs:Vec<u16> = i.split('+').map(|i| {
-                let key = format!("KEY_{}", i.to_uppercase());
+            let inputs:Vec<usize> = i.split('+').map(|i| {
+                let key = format!("KEY_{}", i);
                 let key_code = evdev::KeyCode::from_str(key.as_str())
                     .unwrap_or_else(|e| {
                         eprintln!("invalid keymap line: {}", cleaned);
@@ -35,7 +38,7 @@ pub fn load_fwd() -> &'static HashMap<Behavior, Vec<u16>> {
                         std::process::exit(1);
                     });
 
-                key_code.0
+                key_code.0 as usize
             }).collect();
 
             tmp.insert(Behavior::from_str(b), inputs);
@@ -50,8 +53,8 @@ pub fn load_rvs() -> &'static [Vec<Behavior>] {
         let mut tmp:[Vec<Behavior>; 249] = std::array::from_fn(|_| Vec::new());
 
         for (behavior, inputs) in load_fwd() {
-            for i in inputs {
-                if let Some(slot) = tmp.get_mut(*i as usize) {
+            for &i in inputs {
+                if let Some(slot) = tmp.get_mut(i) {
                     slot.push(behavior.clone());
                 }
             }
@@ -59,4 +62,60 @@ pub fn load_rvs() -> &'static [Vec<Behavior>] {
 
         tmp
     })
+}
+
+pub fn rewire(original: InputEvent) -> InputEvent {
+    let cfg = REWIRE_CFG.get_or_init(|| {
+        let mut tmp: [u16; 249] = [0; 249];
+        for i in 0..0xF8 {
+            tmp[i] = i as u16;
+        }
+
+        let Ok(rewire_file) = File::open(
+            config::resolve_path().join("rewire.conf")
+        ) else {
+            return tmp
+        };
+
+        for line in BufReader::new(rewire_file).lines() {
+            let line = line.unwrap();
+            let cleaned = line.replace(" ", "").to_uppercase();
+
+            if cleaned.is_empty() || cleaned.starts_with("#") {
+                continue;
+            }
+
+            let kv:Vec<&str> = cleaned.split("->").collect();
+            let [f, t] = kv.as_slice() else {
+                  eprintln!("invalid rewire line: {}", cleaned);
+                  std::process::exit(1);
+            };
+
+            let from = evdev::KeyCode::from_str(format!("KEY_{}", f).as_str())
+                .unwrap_or_else(|e| {
+                    eprintln!("invalid rewire line: {}", cleaned);
+                    eprintln!("rewire error : {}", e);
+                    std::process::exit(1);
+                })
+                .code() as usize;
+
+            let to  = evdev::KeyCode::from_str(format!("KEY_{}", t).as_str())
+                .unwrap_or_else(|e| {
+                    eprintln!("invalid rewire line: {}", cleaned);
+                    eprintln!("rewire error : {}", e);
+                    std::process::exit(1);
+                })
+                .code();
+
+            tmp[from] = to;
+        }
+
+        tmp
+    });
+
+    InputEvent::new(
+        original.event_type().0,
+        cfg[original.code() as usize],
+        original.value()
+    )
 }

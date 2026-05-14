@@ -2,7 +2,7 @@ use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
-use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
+use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::{self, keymap}};
 
 
 pub struct EventDriver {
@@ -121,8 +121,10 @@ impl EventDriver {
 fn handle_events(events: FetchEventsSynced){
     let keymap_fwd = keymap::load_fwd();
 
-    for ev in events {
+    for mut ev in events {
         if EventType::KEY != ev.event_type() {continue}
+        ev = setup::keymap::rewire(ev);
+
         let code = ev.code() as usize;
         let value = ev.value();
 
