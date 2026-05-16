@@ -36,10 +36,7 @@ pub(crate) fn scan() {
             && k.contains(evdev::KeyCode::KEY_ENTER)
             && k.contains(evdev::KeyCode::KEY_SPACE)
         )
-        {
-            println!("keyboard: {:?}", dev.name());
-            KEYBOARDS.with_borrow_mut(|v| v.push((path, dev)));
-        }
+        { KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
     }
 }
 

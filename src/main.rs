@@ -1,12 +1,14 @@
-use bincur::runtime::event::EventDriver;
+use bincur::event::reactor::Reactor;
+
 
 fn main() -> std::io::Result<()> {
-    let mut ed = EventDriver::new();
-    println!("[START] bincur v{}", env!("CARGO_PKG_VERSION"));
+    let mut reactor = Reactor::new();
+    let args: Vec<String> = std::env::args().skip(1).collect();
+
     loop {
-        match ed.run() {
+        match reactor.run(&args) {
             Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {
-                ed.reset();
+                reactor.reset();
             }
             _ => return Ok(())
         }
