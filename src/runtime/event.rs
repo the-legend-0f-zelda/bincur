@@ -2,7 +2,7 @@ use std::{io, os::fd::AsRawFd};
 use evdev::{EventType, FetchEventsSynced};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
-use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::{self, keymap}};
+use crate::{device::{self, keyboards::{self, KEYBOARDS, PRESS_STATE, pass_through}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
 pub struct EventDriver {
@@ -25,7 +25,7 @@ impl EventDriver {
             Interest::READABLE
         ).unwrap();
 
-        let mut zelf = Self{
+        let zelf = Self{
             events: Events::with_capacity(16),
             monitor,
             poll
@@ -35,17 +35,7 @@ impl EventDriver {
         zelf
     }
 
-    pub fn reset(&mut self) {
-        KEYBOARDS.with_borrow_mut(|v| {
-            for (_, device) in v.iter_mut() {
-                let _r = self.poll.registry()
-                    .deregister(&mut SourceFd(&device.as_raw_fd()));
-            }
-        });
-
-        keyboards::scan();
-        setup::keymap::initialize();
-
+    fn register_keyboards(&self) {
         KEYBOARDS.with_borrow_mut(|v| {
             v.retain_mut(|(path, device)| {
                 if let Err(e) = device.grab() {
@@ -69,9 +59,26 @@ impl EventDriver {
                 }
             }
         });
+    }
+
+    fn deregister_keyboards(&self) {
+        KEYBOARDS.with_borrow_mut(|v| {
+            for (_, device) in v.iter_mut() {
+                let _r = self.poll.registry()
+                    .deregister(&mut SourceFd(&device.as_raw_fd()));
+            }
+        });
+    }
+
+    pub fn reset(&self) {
+        self.deregister_keyboards();
+        keyboards::scan();
+        keymap::initialize();
 
         ACTIVATED_SET.with_borrow_mut(|active| active.clear());
         PRESS_STATE.with_borrow_mut(|press| press.iter_mut().for_each(|s| *s=(false, false) ));
+
+        self.register_keyboards();
     }
 
     pub fn run(&mut self) -> io::Result<()> {
@@ -120,8 +127,6 @@ impl EventDriver {
 
 
 fn handle_events(kbd_idx: usize, events: FetchEventsSynced){
-    //let keymap_fwd = keymap::load_fwd();
-
     for mut ev in events {
         if EventType::KEY != ev.event_type() {continue}
         ev = keymap::rewire(ev, kbd_idx);
@@ -136,7 +141,6 @@ fn handle_events(kbd_idx: usize, events: FetchEventsSynced){
             };
         });
 
-        //let Some(related_behaviors) = keymap::load_rvs().get(code)
         let Some(related_behaviors) = keymap::get_related_behaviors(kbd_idx, code)
         else {
             pass_through(ev);
@@ -148,7 +152,6 @@ fn handle_events(kbd_idx: usize, events: FetchEventsSynced){
         ACTIVATED_SET.with_borrow_mut(|active| {
             if value > 0 { // On key down
                 for behavior in related_behaviors.iter() {
-                    //let Some(combo) = keymap_fwd.get(behavior)
                     let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                     else {continue};
 
@@ -186,7 +189,6 @@ fn handle_events(kbd_idx: usize, events: FetchEventsSynced){
                             continue;
                         },
                         _ => {
-                            //let len = keymap_fwd.get(a).map_or(0, |c| c.len());
                             let len = match keymap::get_combo(kbd_idx, a) {
                                 Some(combo) => combo.len(),
                                 None => 0

@@ -1,7 +1,7 @@
-use std::{cell::RefCell, collections::{HashMap, HashSet}, rc::Rc, str::FromStr, sync::OnceLock};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use evdev::InputEvent;
 
-use crate::{device::{keyboards::{self, KEYBOARDS}, vmouse::Behavior}, setup::{config::{self, cleaned_lines}, keymap}};
+use crate::{device::{keyboards::{self}, vmouse::Behavior}, setup::config};
 
 pub const KEYCODE_MAX:usize = 248;
 
@@ -17,8 +17,7 @@ pub fn initialize() {
     load_cfg_rewire();
 }
 
-pub fn load_cfg_fwd() //-> &'static HashMap<Behavior, Vec<usize>>
-{
+pub fn load_cfg_fwd() {
     KEYMAP_FWD.with_borrow_mut(|fwd| {
         *fwd = Vec::new();
 
@@ -60,8 +59,7 @@ pub fn load_cfg_fwd() //-> &'static HashMap<Behavior, Vec<usize>>
     });
 }
 
-pub fn load_cfg_rvs() //-> &'static [Vec<Behavior>]
-{
+pub fn load_cfg_rvs() {
     KEYMAP_RVS.with_borrow_mut(|rvs| *rvs = Vec::new());
 
     for (_kbd_idx, keymap) in KEYMAP_FWD.with_borrow(|fwd| fwd.clone())
@@ -93,6 +91,8 @@ pub fn load_cfg_rvs() //-> &'static [Vec<Behavior>]
 }
 
 pub fn load_cfg_rewire() {
+    REWIRE_CFG.with_borrow_mut(|rewires| {rewires.clear()});
+
     for name in keyboards::names() {
         let cfg_lines = match name {
             Some(name) => {
