@@ -1,4 +1,4 @@
-use std::{fs::File, io::{BufRead, BufReader}, sync::OnceLock};
+use std::sync::OnceLock;
 use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
 use crate::setup::config;
 
@@ -29,23 +29,12 @@ pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
 
 pub(crate) fn load_default() -> &'static Config {
     VMOUSE_CFG_DEFAULT.get_or_init(|| {
-        let conf_file:File = File::open(
-            config::resolve_path().join("vmouse.conf")
-        ).unwrap();
-
         let mut cfg = Config::new();
 
-        for line in BufReader::new(conf_file).lines() {
-            let line = line.unwrap();
-            let cleaned = line.replace(" ", "").to_uppercase();
-
-            if cleaned.is_empty() || cleaned.starts_with("#") {
-                continue;
-            }
-
-            let kv:Vec<&str> = cleaned.split(':').collect();
+        for line in config::cleaned_lines("vmouse.conf") {
+            let kv:Vec<&str> = line.split(':').collect();
             let [k, v] = kv.as_slice() else {
-                  eprintln!("invalid vmouse config: {}", cleaned);
+                  eprintln!("invalid vmouse config: {}", line);
                   std::process::exit(1);
             };
 

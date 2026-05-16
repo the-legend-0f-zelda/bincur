@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::{BufRead, BufReader}, str::FromStr, sync::OnceLock};
+use std::{collections::HashMap, str::FromStr, sync::OnceLock};
 use evdev::InputEvent;
 
 use crate::{device::vmouse::Behavior, setup::config};
@@ -9,23 +9,12 @@ static REWIRE_CFG:OnceLock<[u16; 249]> = OnceLock::new();
 
 pub fn load_fwd() -> &'static HashMap<Behavior, Vec<usize>> {
     KEYMAP_FWD.get_or_init(|| {
-        let keymap_file:File = File::open(
-            config::resolve_path().join("keymap.conf")
-        ).unwrap();
-
         let mut tmp:HashMap<Behavior, Vec<usize>> = HashMap::new();
 
-        for line in BufReader::new(keymap_file).lines(){
-            let line = line.unwrap();
-            let cleaned = line.replace(" ", "").to_uppercase();
-
-            if cleaned.is_empty() || cleaned.starts_with("#") {
-                continue;
-            }
-
-            let kv:Vec<&str> = cleaned.split(':').collect();
+        for line in config::cleaned_lines("keymap.conf") {
+            let kv:Vec<&str> = line.split(':').collect();
             let [i, b] = kv.as_slice() else {
-                  eprintln!("invalid keymap line: {}", cleaned);
+                  eprintln!("invalid keymap line: {}", line);
                   std::process::exit(1);
             };
 
@@ -33,7 +22,7 @@ pub fn load_fwd() -> &'static HashMap<Behavior, Vec<usize>> {
                 let key = format!("KEY_{}", i);
                 let key_code = evdev::KeyCode::from_str(key.as_str())
                     .unwrap_or_else(|e| {
-                        eprintln!("invalid keymap line: {}", cleaned);
+                        eprintln!("invalid keymap line: {}", line);
                         eprintln!("keymap error : {}", e);
                         std::process::exit(1);
                     });
@@ -71,29 +60,16 @@ pub fn rewire(original: InputEvent) -> InputEvent {
             tmp[i] = i as u16;
         }
 
-        let Ok(rewire_file) = File::open(
-            config::resolve_path().join("rewire.conf")
-        ) else {
-            return tmp
-        };
-
-        for line in BufReader::new(rewire_file).lines() {
-            let line = line.unwrap();
-            let cleaned = line.replace(" ", "").to_uppercase();
-
-            if cleaned.is_empty() || cleaned.starts_with("#") {
-                continue;
-            }
-
-            let kv:Vec<&str> = cleaned.split("->").collect();
+        for line in config::cleaned_lines("rewire.conf") {
+            let kv:Vec<&str> = line.split("->").collect();
             let [f, t] = kv.as_slice() else {
-                  eprintln!("invalid rewire line: {}", cleaned);
+                  eprintln!("invalid rewire line: {}", line);
                   std::process::exit(1);
             };
 
             let from = evdev::KeyCode::from_str(format!("KEY_{}", f).as_str())
                 .unwrap_or_else(|e| {
-                    eprintln!("invalid rewire line: {}", cleaned);
+                    eprintln!("invalid rewire line: {}", line);
                     eprintln!("rewire error : {}", e);
                     std::process::exit(1);
                 })
@@ -101,7 +77,7 @@ pub fn rewire(original: InputEvent) -> InputEvent {
 
             let to  = evdev::KeyCode::from_str(format!("KEY_{}", t).as_str())
                 .unwrap_or_else(|e| {
-                    eprintln!("invalid rewire line: {}", cleaned);
+                    eprintln!("invalid rewire line: {}", line);
                     eprintln!("rewire error : {}", e);
                     std::process::exit(1);
                 })

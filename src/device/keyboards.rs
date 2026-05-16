@@ -14,7 +14,7 @@ thread_local! {
             .name("bincur-vkeyboard")
             .with_keys(&{
                 let mut keys = AttributeSet::new();
-                for code in 1..0x2e7 {
+                for code in 0..0x2e7 {
                     keys.insert(KeyCode::new(code));
                 }
                 keys
