@@ -31,7 +31,7 @@ pub(crate) fn load_default() -> &'static Config {
     VMOUSE_CFG_DEFAULT.get_or_init(|| {
         let mut cfg = Config::new();
 
-        for line in config::cleaned_lines("vmouse.conf") {
+        for line in config::cleaned_lines("vmouse.conf", None) {
             let kv:Vec<&str> = line.split(':').collect();
             let [k, v] = kv.as_slice() else {
                   eprintln!("invalid vmouse config: {}", line);

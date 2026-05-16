@@ -12,11 +12,17 @@ pub fn resolve_path() -> &'static PathBuf {
     })
 }
 
-pub fn cleaned_lines(conf_name:&str) -> Vec<String> {
+pub fn cleaned_lines(conf_name:&str, default_name: Option<&str>) -> Vec<String> {
     let mut result:Vec<String> = Vec::new();
 
-    let Ok(file) = File::open(resolve_path().join(conf_name))
-        else {return result};
+    let file = match File::open(resolve_path().join(conf_name)) {
+        Ok(file) => file,
+        Err(_) => {
+            let Some(fallback) = default_name
+                else {return result};
+            return cleaned_lines(fallback, None)
+        }
+    };
 
     let mut lines = BufReader::new(file).lines();
     for line in &mut lines {

@@ -43,6 +43,19 @@ pub(crate) fn scan() {
     }
 }
 
+pub(crate) fn names() -> Vec<Option<String>> {
+    let mut names:Vec<Option<String>> = Vec::new();
+    KEYBOARDS.with_borrow(|kbds| {
+        for (_path, kbd) in kbds {
+            let name: Option<String> = match kbd.name() {
+                Some(name) => Some(name.to_string()),
+                None => None
+            };
+            names.push(name);
+        }
+    });
+    names
+}
 
 pub(crate) fn pass_through(event: InputEvent) {
     VKEYBOARD_PASSTHROUGH.with_borrow_mut(|vkeyboard| {

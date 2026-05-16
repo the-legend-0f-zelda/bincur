@@ -44,6 +44,7 @@ impl EventDriver {
         });
 
         keyboards::scan();
+        setup::keymap::initialize();
 
         KEYBOARDS.with_borrow_mut(|v| {
             v.retain_mut(|(path, device)| {
@@ -99,7 +100,7 @@ impl EventDriver {
                     let target = &mut keyboards.get_mut(kbd_idx).unwrap().1;
                     loop {
                         match target.fetch_events() {
-                            Ok(iter) => handle_events(iter),
+                            Ok(iter) => handle_events(kbd_idx, iter),
                             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return false,
                             Err(e) => {
                                 eprintln!("fetch_events error (kbd_idx={kbd_idx}): {}", e);
@@ -118,12 +119,12 @@ impl EventDriver {
 }
 
 
-fn handle_events(events: FetchEventsSynced){
-    let keymap_fwd = keymap::load_fwd();
+fn handle_events(kbd_idx: usize, events: FetchEventsSynced){
+    //let keymap_fwd = keymap::load_fwd();
 
     for mut ev in events {
         if EventType::KEY != ev.event_type() {continue}
-        ev = setup::keymap::rewire(ev);
+        ev = keymap::rewire(ev, kbd_idx);
 
         let code = ev.code() as usize;
         let value = ev.value();
@@ -135,7 +136,8 @@ fn handle_events(events: FetchEventsSynced){
             };
         });
 
-        let Some(related_behaviors) = keymap::load_rvs().get(code)
+        //let Some(related_behaviors) = keymap::load_rvs().get(code)
+        let Some(related_behaviors) = keymap::get_related_behaviors(kbd_idx, code)
         else {
             pass_through(ev);
             continue;
@@ -145,8 +147,9 @@ fn handle_events(events: FetchEventsSynced){
 
         ACTIVATED_SET.with_borrow_mut(|active| {
             if value > 0 { // On key down
-                for behavior in related_behaviors {
-                    let Some(combo) = keymap_fwd.get(behavior)
+                for behavior in related_behaviors.iter() {
+                    //let Some(combo) = keymap_fwd.get(behavior)
+                    let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                     else {continue};
 
                     PRESS_STATE.with_borrow(|press| {
@@ -183,7 +186,11 @@ fn handle_events(events: FetchEventsSynced){
                             continue;
                         },
                         _ => {
-                            let len = keymap_fwd.get(a).map_or(0, |c| c.len());
+                            //let len = keymap_fwd.get(a).map_or(0, |c| c.len());
+                            let len = match keymap::get_combo(kbd_idx, a) {
+                                Some(combo) => combo.len(),
+                                None => 0
+                            };
                             if len < max_combo_len {continue}
                             if len > max_combo_len {
                                 longest.clear();
@@ -197,7 +204,7 @@ fn handle_events(events: FetchEventsSynced){
                 to_dispatch.extend(longest);
 
             }else { // On key up
-                for behavior in related_behaviors {
+                for behavior in related_behaviors.iter() {
                     if !active.remove(behavior) {continue}
                     if let Some(inv) = behavior.inverse() {
                         to_dispatch.push(inv);
