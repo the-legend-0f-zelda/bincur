@@ -3,9 +3,10 @@ use evdev::InputEvent;
 
 use crate::{device::vmouse::Behavior, setup::config};
 
+pub const KEYCODE_MAX:usize = 248;
 static KEYMAP_FWD:OnceLock<HashMap<Behavior, Vec<usize>>> = OnceLock::new();
-static KEYMAP_RVS:OnceLock<[Vec<Behavior>; 249]> = OnceLock::new();
-static REWIRE_CFG:OnceLock<[u16; 249]> = OnceLock::new();
+static KEYMAP_RVS:OnceLock<[Vec<Behavior>; KEYCODE_MAX+1]> = OnceLock::new();
+static REWIRE_CFG:OnceLock<[u16; KEYCODE_MAX+1]> = OnceLock::new();
 
 pub fn load_fwd() -> &'static HashMap<Behavior, Vec<usize>> {
     KEYMAP_FWD.get_or_init(|| {
@@ -39,7 +40,7 @@ pub fn load_fwd() -> &'static HashMap<Behavior, Vec<usize>> {
 
 pub fn load_rvs() -> &'static [Vec<Behavior>] {
     KEYMAP_RVS.get_or_init(|| {
-        let mut tmp:[Vec<Behavior>; 249] = std::array::from_fn(|_| Vec::new());
+        let mut tmp:[Vec<Behavior>; KEYCODE_MAX+1] = std::array::from_fn(|_| Vec::new());
 
         for (behavior, inputs) in load_fwd() {
             for &i in inputs {
@@ -53,10 +54,10 @@ pub fn load_rvs() -> &'static [Vec<Behavior>] {
     })
 }
 
-pub fn rewire(original: InputEvent) -> InputEvent {
+pub fn rewire(origin: InputEvent) -> InputEvent {
     let cfg = REWIRE_CFG.get_or_init(|| {
-        let mut tmp: [u16; 249] = [0; 249];
-        for i in 0..0xF8 {
+        let mut tmp: [u16; KEYCODE_MAX+1] = [0; KEYCODE_MAX+1];
+        for i in 0..KEYCODE_MAX {
             tmp[i] = i as u16;
         }
 
@@ -75,7 +76,7 @@ pub fn rewire(original: InputEvent) -> InputEvent {
                 })
                 .code() as usize;
 
-            let to  = evdev::KeyCode::from_str(format!("KEY_{}", t).as_str())
+            let to = evdev::KeyCode::from_str(format!("KEY_{}", t).as_str())
                 .unwrap_or_else(|e| {
                     eprintln!("invalid rewire line: {}", line);
                     eprintln!("rewire error : {}", e);
@@ -90,8 +91,8 @@ pub fn rewire(original: InputEvent) -> InputEvent {
     });
 
     InputEvent::new(
-        original.event_type().0,
-        cfg[original.code() as usize],
-        original.value()
+        origin.event_type().0,
+        cfg[origin.code() as usize],
+        origin.value()
     )
 }

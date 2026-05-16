@@ -1,11 +1,13 @@
 use std::{cell::RefCell, path::PathBuf};
 use evdev::{AttributeSet, Device, InputEvent, KeyCode, uinput::VirtualDevice};
 
+use crate::setup::keymap::KEYCODE_MAX;
+
 thread_local! {
     pub(crate) static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
     /// Pressed state indexed by evdev scancode (KEY_RESERVED=0 .. KEY_MICMUTE=248).
-    pub(crate) static PRESS_STATE:RefCell<[(bool, bool); 249]> = RefCell::new([(false, false); 249]);
+    pub(crate) static PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
 
     /// Virtual device for forwarding unbound key events.
     /// evdev 0.13.2: highest defined key code is 0x2e7 (BTN_TRIGGER_HAPPY40)
@@ -14,7 +16,7 @@ thread_local! {
             .name("bincur-vkeyboard")
             .with_keys(&{
                 let mut keys = AttributeSet::new();
-                for code in 0..0x2e7 {
+                for code in 0..KEYCODE_MAX as u16 {
                     keys.insert(KeyCode::new(code));
                 }
                 keys
@@ -34,7 +36,10 @@ pub(crate) fn scan() {
             && k.contains(evdev::KeyCode::KEY_ENTER)
             && k.contains(evdev::KeyCode::KEY_SPACE)
         )
-        { KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
+        {
+            println!("keyboard: {:?}", dev.name());
+            KEYBOARDS.with_borrow_mut(|v| v.push((path, dev)));
+        }
     }
 }
 
