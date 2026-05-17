@@ -35,6 +35,7 @@ fn inspect_keyboard(keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) 
             None => String::from("")
         };
 
+        println!("===================================");
         println!("KEYBOARD_NAME: {}", kbd_name);
         println!("KEYBOARD_INDEX: {}", kbd_idx);
         println!("KEY_EVENT: {:#?}", ev);
