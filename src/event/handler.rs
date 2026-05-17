@@ -1,25 +1,47 @@
-use evdev::{EventType, FetchEventsSynced};
+use evdev::{Device, EventType, InputEvent};
 
-use crate::{device::{self, keyboards::{KEYBOARDS, PRESS_STATE}, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
+use crate::{device::{self, keyboards::PRESS_STATE, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
-pub(crate) fn determine_handler(options: &Vec<String>) -> fn(usize, FetchEventsSynced) {
+pub(crate) fn determine_handler(options: &Vec<String>) -> (fn(&Device, usize, Vec<InputEvent>), bool) {
     match options.get(0)
-        .unwrap_or(&String::from(" "))
+        .unwrap_or(&String::from(""))
         .as_str()
     {
-        "-i" => inspect_keyboard,
-        "-v" => print_version,
-        _ => emulate_mouse
+        "-v" => {
+            println!("bincur {}", env!("CARGO_PKG_VERSION"));
+            std::process::exit(0);
+        },
+        "-i" => {
+            println!("[START] keyboard inspect mode");
+            println!("Press ESC to quit");
+            (inspect_keyboard, false)
+        },
+        _ => (emulate_mouse, true)
     }
 }
 
-fn print_version(_kbd_idx: usize, _events:FetchEventsSynced) {
-    println!("bincur {}", env!("CARGO_PKG_VERSION"));
-    std::process::exit(0);
+fn inspect_keyboard(keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
+    for ev in events {
+        if EventType::KEY!=ev.event_type() {continue}
+
+        if ev.code() == 1 {
+            println!("[STOP] keyboard inspect mode");
+            std::process::exit(0);
+        }
+
+        let kbd_name = match keyboard.name() {
+            Some(name) => name.replace(" ", "_"),
+            None => String::from("")
+        };
+
+        println!("KEYBOARD_NAME: {}", kbd_name);
+        println!("KEYBOARD_INDEX: {}", kbd_idx);
+        println!("KEY_EVENT: {:#?}", ev);
+    }
 }
 
-fn emulate_mouse(kbd_idx: usize, events: FetchEventsSynced) {
+fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
     for mut ev in events {
         if EventType::KEY != ev.event_type() {continue}
 
@@ -126,31 +148,5 @@ fn emulate_mouse(kbd_idx: usize, events: FetchEventsSynced) {
         });
 
         if !grab {device::keyboards::pass_through(ev);}
-    }
-}
-
-fn inspect_keyboard(kbd_idx: usize, events: FetchEventsSynced) {
-    println!("[START] keyboard inspect mode");
-    println!("Press ESC to quit");
-
-    for ev in events {
-        if EventType::KEY!=ev.event_type() ||ev.code()==0 {
-            continue
-        }
-
-        if ev.code() == 1 {
-            println!("[STOP] keyboard inspect mode");
-            std::process::exit(0);
-        }
-
-        let kbd_name = KEYBOARDS.with_borrow(|kbds| {
-            match kbds.get(kbd_idx) {
-                Some((_path, device)) => device.name().unwrap_or("").to_string(),
-                None => String::from("")
-            }
-        });
-
-        println!("KEYBOARD_NAME: {}", kbd_name.replace(" ", "_"));
-        println!("KEY_EVENT: {:#?}", ev);
     }
 }

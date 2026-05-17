@@ -1,4 +1,5 @@
 use std::{io, os::fd::AsRawFd};
+use evdev::{Device, InputEvent};
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
 use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, event::handler::determine_handler, setup::keymap};
@@ -7,12 +8,14 @@ use crate::{device::{keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATE
 pub struct Reactor {
     pub events:Events,
     monitor: udev::MonitorSocket,
-    poll: Poll
+    poll: Poll,
+    handle_events: fn(&Device, usize, Vec<InputEvent>),
+    grab: bool
 }
 
 impl Reactor {
 
-    pub fn new() -> Self {
+    pub fn new(args:Vec<String>) -> Self {
         let monitor = MonitorBuilder::new().unwrap()
             .match_subsystem("input").unwrap()
             .listen().unwrap();
@@ -24,10 +27,14 @@ impl Reactor {
             Interest::READABLE
         ).unwrap();
 
+        let (handle_events, grab) = determine_handler(&args);
+
         let zelf = Self{
             events: Events::with_capacity(16),
             monitor,
-            poll
+            poll,
+            handle_events,
+            grab
         };
 
         zelf.reset();
@@ -37,14 +44,17 @@ impl Reactor {
     fn register_keyboards(&self) {
         KEYBOARDS.with_borrow_mut(|v| {
             v.retain_mut(|(path, device)| {
-                if let Err(e) = device.grab() {
-                    eprintln!("grab failed ({}): {e}", path.display());
-                    return false;
+                if self.grab {
+                    if let Err(e) = device.grab() {
+                        eprintln!("grab failed ({}): {e}", path.display());
+                        return false;
+                    }
                 }
                 if let Err(e) = device.set_nonblocking(true) {
                     eprintln!("set_nonblocking failed ({}): {e}", path.display());
                     return false;
                 }
+
                 true
             });
 
@@ -80,9 +90,7 @@ impl Reactor {
         self.register_keyboards();
     }
 
-    pub fn run(&mut self, options: &Vec<String>) -> io::Result<()> {
-        let handle_events = determine_handler(options);
-
+    pub fn run(&mut self) -> io::Result<()> {
         loop {
             self.poll.poll(&mut self.events, None)?;
             let mut needs_reset = false;
@@ -91,11 +99,12 @@ impl Reactor {
                 let token = ev.token();
 
                 if token.0 == 0 {
-                    for dev in self.monitor.iter() {
-                        if dev.syspath().to_string_lossy().contains("/virtual/input") { continue }
-                        let Some(node) = dev.devnode() else { continue };
+                    for device in self.monitor.iter() {
+                        if device.syspath().to_string_lossy().contains("/virtual/input") { continue }
+                        let Some(node) = device.devnode() else { continue };
                         if !node.to_string_lossy().starts_with("/dev/input/event") { continue }
-                        match dev.event_type() {
+
+                        match device.event_type() {
                             udev::EventType::Add | udev::EventType::Remove => needs_reset = true,
                             _ => {}
                         }
@@ -107,14 +116,15 @@ impl Reactor {
                     let kbd_idx = token.0 - 1;
                     let target = &mut keyboards.get_mut(kbd_idx).unwrap().1;
                     loop {
-                        match target.fetch_events() {
-                            Ok(iter) => handle_events(kbd_idx, iter),
+                        let events:Vec<InputEvent> = match target.fetch_events() {
+                            Ok(iter) => iter.collect(),
                             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return false,
                             Err(e) => {
                                 eprintln!("fetch_events error (kbd_idx={kbd_idx}): {}", e);
                                 return true;
                             }
-                        }
+                        };
+                        (self.handle_events)(target, kbd_idx, events);
                     }
                 });
             }
