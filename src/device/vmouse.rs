@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use Direction::*;
 
 use crate::setup;
-use crate::setup::vmouse::Config;
+use crate::setup::vmouse::Props;
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
@@ -16,7 +16,17 @@ thread_local! {
             .with_keys(setup::vmouse::get_keys()).unwrap()
             .build().unwrap()
     );
-    pub static VMOUSE_CFG: RefCell<Config> = RefCell::new(*setup::vmouse::load_default());
+    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*setup::vmouse::load_default());
+}
+
+pub fn mark_active(behavior: &Behavior) -> bool {
+    ACTIVATED_SET
+        .with_borrow_mut(|a_set| a_set.insert(behavior.clone()))
+}
+
+pub fn mark_inactive(behavior: &Behavior) -> bool {
+    ACTIVATED_SET
+        .with_borrow_mut(|a_set| a_set.remove(behavior))
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -92,7 +102,7 @@ impl Behavior {
             }
 
             Self::LinearModeOn => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     if cfg.mode < 1 {
                         cfg.mode = 1;
                         cfg.reset_xy();
@@ -101,14 +111,14 @@ impl Behavior {
                 });
             },
             Self::LinearModeOff => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     if cfg.mode == 1 { cfg.mode = 0; }
                     cfg.grab_linear
                 });
             },
 
             Self::LogarithmicModeOn => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     if cfg.mode < 2 {
                         cfg.mode = 2;
                     }
@@ -116,7 +126,7 @@ impl Behavior {
                 });
             },
             Self::LogarithmicModeOff => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     if cfg.mode == 2 {
                         if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
                             cfg.mode = 1;
@@ -130,13 +140,13 @@ impl Behavior {
             },
 
             Self::ScrollModeOn => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     cfg.mode = 3;
                     cfg.grab_scroll
                 });
             },
             Self::ScrollModeOff => {
-                return VMOUSE_CFG.with_borrow_mut(|cfg| {
+                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
                     if cfg.mode == 3 {
                         if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LogarithmicModeOn)) {
                             cfg.mode = 2;
@@ -179,7 +189,7 @@ impl Behavior {
 enum Direction {Up, Down, Left, Right,}
 
 fn new_move_event(direction: Direction) -> Vec<InputEvent> {
-    VMOUSE_CFG.with_borrow_mut(|cfg| {
+    VMOUSE_PROPS.with_borrow_mut(|cfg| {
         let (axis, step_size) = match (cfg.mode, &direction) {
             (1, Up) => (RelativeAxisCode::REL_Y, -cfg.step_size_y),
             (1, Down) => (RelativeAxisCode::REL_Y, cfg.step_size_y),
@@ -203,7 +213,7 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
 }
 
 fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
-    if VMOUSE_CFG.with_borrow(|cfg| cfg.mode) == 0 {return vec![]}
+    if VMOUSE_PROPS.with_borrow(|cfg| cfg.mode) == 0 {return vec![]}
     return match direction {
         Left => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value)],
         Right => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value)],

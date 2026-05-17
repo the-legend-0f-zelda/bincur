@@ -167,8 +167,6 @@ scroll_dist_y : 2
 leftctrl+q : EXIT
 
 # 1. Trigger virtual mouse mode
-
-# 1-1. For standard keyboard layout
 leftalt : LINEAR_MODE
 leftalt+leftshift : LOGARITHMIC_MODE
 leftalt+c : SCROLL_MODE

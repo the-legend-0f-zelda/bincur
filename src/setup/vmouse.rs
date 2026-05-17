@@ -4,7 +4,7 @@ use crate::setup::config;
 
 pub static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
 pub static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
-pub(crate) static VMOUSE_CFG_DEFAULT: OnceLock<Config> = OnceLock::new();
+static VMOUSE_PROPS_DEFAULT: OnceLock<Props> = OnceLock::new();
 
 pub fn get_keys() -> &'static AttributeSet<KeyCode> {
     VMOUSE_KEYS.get_or_init(|| {
@@ -27,9 +27,9 @@ pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
     })
 }
 
-pub(crate) fn load_default() -> &'static Config {
-    VMOUSE_CFG_DEFAULT.get_or_init(|| {
-        let mut cfg = Config::new();
+pub fn load_default() -> &'static Props {
+    VMOUSE_PROPS_DEFAULT.get_or_init(|| {
+        let mut cfg = Props::new();
 
         for line in config::cleaned_lines("vmouse.conf", None) {
             let kv:Vec<&str> = line.split(':').collect();
@@ -55,19 +55,19 @@ pub(crate) fn load_default() -> &'static Config {
 }
 
 #[derive(Clone, Copy)]
-pub(crate) struct Config {
-    pub(crate) mode: u8,
-    pub(crate) grab_linear: bool,
-    pub(crate) grab_logarithmic: bool,
-    pub(crate) grab_scroll: bool,
-    pub(crate) step_size_x: i32,
-    pub(crate) step_size_y: i32,
-    pub(crate) scroll_dist_x: i32,
-    pub(crate) scroll_dist_y: i32,
+pub struct Props {
+    pub mode: u8,
+    pub grab_linear: bool,
+    pub grab_logarithmic: bool,
+    pub grab_scroll: bool,
+    pub step_size_x: i32,
+    pub step_size_y: i32,
+    pub scroll_dist_x: i32,
+    pub scroll_dist_y: i32,
 }
 
-impl Config {
-    pub(crate) fn new() -> Self {
+impl Props {
+    pub fn new() -> Self {
         Self {
             mode: 0,
             grab_linear: false,
@@ -80,7 +80,7 @@ impl Config {
         }
     }
 
-    pub(crate) fn reset_xy(&mut self) {
+    pub fn reset_xy(&mut self) {
         let default = load_default();
         self.step_size_x = default.step_size_x;
         self.step_size_y = default.step_size_y;

@@ -1,6 +1,6 @@
 use std::{fs::File, io::{BufRead, BufReader}, path::PathBuf, sync::OnceLock};
 
-pub(crate) static CONF_HOME:OnceLock<PathBuf> = OnceLock::new();
+pub static CONF_HOME:OnceLock<PathBuf> = OnceLock::new();
 pub fn resolve_path() -> &'static PathBuf {
     CONF_HOME.get_or_init(|| {
         return std::env::var("BINCUR_CONF_HOME")

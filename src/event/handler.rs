@@ -3,7 +3,9 @@ use evdev::{Device, EventType, InputEvent};
 use crate::{device::{self, keyboards::PRESS_STATE, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
 
-pub(crate) fn determine_handler(options: &Vec<String>) -> (fn(&Device, usize, Vec<InputEvent>), bool) {
+pub fn determine_handler(options: &Vec<String>)
+    -> (fn(&Device, usize, Vec<InputEvent>), bool)
+{
     match options.get(0)
         .unwrap_or(&String::from(""))
         .as_str()
@@ -50,10 +52,10 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
         let code = ev.code() as usize;
         let value = ev.value();
 
-        PRESS_STATE.with_borrow_mut(|states| {
-            match states.get_mut(code) {
+        PRESS_STATE.with_borrow_mut(|p_state| {
+            match p_state.get_mut(code) {
                 Some(slot) => slot.0 = value > 0,
-                None => return
+                None => {}
             };
         });
 
@@ -65,38 +67,34 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
 
         let mut to_dispatch:Vec<Behavior> = Vec::new();
 
-        ACTIVATED_SET.with_borrow_mut(|active| {
-            if value > 0 { // On key down
-                for behavior in related_behaviors.iter() {
-                    let Some(combo) = keymap::get_combo(kbd_idx, behavior)
-                    else {continue};
+        if value > 0 { // On key down
+            for behavior in related_behaviors.iter() {
+                let Some(combo) = keymap::get_combo(kbd_idx, behavior)
+                else {continue};
 
-                    PRESS_STATE.with_borrow(|press| {
-                        if combo.iter()
-                            .all(|&key| press.get(key as usize).unwrap_or( &(false, false) ).0 )
-                        {
-                            match *behavior {
-                                Behavior::LinearModeOn
-                                | Behavior::LogarithmicModeOn
-                                | Behavior::ScrollModeOn
-                                | Behavior::Exit => {
-                                    active.insert(behavior.clone());
-                                    to_dispatch.push(behavior.clone());
-                                },
-                                _ => {
-                                    if device::vmouse::VMOUSE_CFG
-                                        .with_borrow(|cfg| cfg.mode) > 0
-                                    {active.insert(behavior.clone());}
-                                }
-                            }
+                if device::keyboards::all_pressed(&combo) {
+                    match *behavior {
+                        Behavior::LinearModeOn
+                        | Behavior::LogarithmicModeOn
+                        | Behavior::ScrollModeOn
+                        | Behavior::Exit => {
+                            device::vmouse::mark_active(behavior);
+                            to_dispatch.push(behavior.clone());
+                        },
+                        _ => {
+                            if device::vmouse::VMOUSE_PROPS
+                                .with_borrow(|cfg| cfg.mode) > 0
+                            {device::vmouse::mark_active(behavior);}
                         }
-                    });
+                    }
                 }
+            }
 
-                let mut max_combo_len = 0;
-                let mut longest: Vec<Behavior> = Vec::new();
+            let mut max_combo_len = 0;
+            let mut longest: Vec<Behavior> = Vec::new();
 
-                for a in active.iter() {
+            ACTIVATED_SET.with_borrow(|a_set| {
+                for a in a_set.iter() {
                     match a {
                         Behavior::LinearModeOn
                         | Behavior::LogarithmicModeOn
@@ -118,26 +116,26 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
                         }
                     }
                 }
+            });
 
-                to_dispatch.extend(longest);
+            to_dispatch.extend(longest);
 
-            }else { // On key up
-                for behavior in related_behaviors.iter() {
-                    if !active.remove(behavior) {continue}
-                    if let Some(inv) = behavior.inverse() {
-                        to_dispatch.push(inv);
-                    }
+        }else { // On key up
+            for behavior in related_behaviors.iter() {
+                if !device::vmouse::mark_inactive(behavior) {continue}
+                if let Some(inv) = behavior.inverse() {
+                    to_dispatch.push(inv);
                 }
             }
-        });
+        }
 
         let mut grab = false;
         for behavior in to_dispatch {
             grab |= behavior.dispatch();
         }
 
-        PRESS_STATE.with_borrow_mut(|s| {
-            let Some(slot) = s.get_mut(code)
+        PRESS_STATE.with_borrow_mut(|p_state| {
+            let Some(slot) = p_state.get_mut(code)
             else {return};
 
             if value > 0 {
