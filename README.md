@@ -14,6 +14,8 @@
 - [Configuration & Examples](#configuration--examples)
   - [Virtual Mouse Settings](#virtual-mouse-settings)
   - [Keybinds](#keybinds)
+  - [Rewire](#rewire)
+  - [Per-device configuration](#per-device-configuration)
 - [References](#references)
 
 <br>
@@ -56,10 +58,10 @@ https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
 - **No overlay** — Nothing extra is drawn on the screen. You press keys, and the cursor moves. That's it.
 - **Hold-to-trigger** — To switch quickly between regular typing and momentary mouse control without finger gymnastics, every mode is triggered by **holding** the key, not by toggling.
 - **Per-key distinction** — Built on the [evdev](https://github.com/emberian/evdev) crate, using its raw scancodes(Follows the Linux kernel scancodes) for key identification. Every key is uniquely distinguishable — for example, **left and right Control** can be bound separately.
-- **Per-deivce configuration** - 키매핑과 리와이어 설정의 경우, 디바이스의 이름을 사용해 해당 키보드 디바이스에만 적용되는 분리된 설정을 만들 수 있습니다.
+- **Per-device configuration** — For keymap and rewire settings, you can create separate configurations that apply only to a specific keyboard device by referencing the device name (see [Per-device configuration](#per-device-configuration)).
 - **Hot-plug support** — Detects keyboard connect/disconnect events at runtime and reconfigures automatically. No need to restart after plugging in a new keyboard via USB or Bluetooth.
 - **Selective grab** — You can decide whether each mode-trigger key is grabbed (see [Virtual Mouse Settings](#virtual-mouse-settings)). For instance, if Shift is set as a mode trigger, leaving it ungrabbed lets it serve double duty as both a trigger and the normal case-shift key.
-- **키 리매핑** - 간단한 설정파일(rewire.conf)로 실제 물리키 입력을 다른 키 입력으로 변환시킬 수 있습니다.
+- **Key rewiring** — A simple config file (`rewire.conf`) lets you translate physical key inputs into different key inputs (see [Rewire](#rewire)).
 
 <br>
 
@@ -134,7 +136,7 @@ Place the config files under the directory pointed to by the `BINCUR_CONF_HOME` 
 
 - `vmouse.conf` — properties of the emulated virtual mouse
 - `keymap.conf` — keybind configuration
-- `rewire.conf` — 물리키 입력을 다른 키 입력 이벤트로 바꿔주는 설정입니다.
+- `rewire.conf` — settings that translate physical key inputs into different key input events.
 
 The examples below are tuned to minimize finger movement from the typing home position (fingers resting on `a`, `s`, `d`, `f`, `j`, `k`, `l`, `;`).
 
@@ -184,7 +186,7 @@ semicolon : CLICK_RIGHT
 
 ### Rewire
 
-아래 설정은 키보드의 좌알트 키와 좌메타 키의 입력을 서로 바꾸는 예시 입니다.
+The example below swaps the inputs of the keyboard's Left Alt and Left Meta keys.
 
 `~/.config/bincur/rewire.conf`
 ```conf
@@ -192,28 +194,27 @@ leftalt -> leftmeta
 leftmeta -> leftalt
 ```
 
----
 #### Tips
 
 - In the example, `LOGARITHMIC_MODE` and `SCROLL_MODE` are bound to combinations with `leftalt` to prevent `leftshift` or `c` alone from being grabbed by `vmouse.conf`.
 - Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
 - To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
-- 메타나 알트등 모디파이어를 특정 모드 트리거로 사용할때 백그라운드 앱들이 영향을 받는게 거슬린다면, 크게 세가지 해결책이 있습니다. 
-  - 첫째는 vmouse.conf 에서 해당 모드의 grab 설정을 true로 바꾸는것인데, 컴포지터를 포함한 다른 모든 앱들에서 해당 키를 사용할 수 없게되는 부작용이 있습니다. 
-  - 두번째는 rewire.conf 설정을 사용하는 것입니다. 예를들어 왼쪽 메타키를 bincur의 모드 트리거키로 사용하려는데 Super_L 심볼에 반응하는 브라우저가 거슬린다면, rewire.conf에 ```leftmeta -> f18``` 이런식으로 설정해볼 수 있습니다. 대부분의 앱들이 f18에 반응하지 않으므로 bincur만 트리거할 수 있게됩니다. 컴포지터나 몇몇 앱에서 선택적으로 왼쪽 메타를 같이 사용하고 싶으면, 해당 개별 앱들의 키바인드 설정에서 좌측 메타키를 f18로 대체하면 됩니다. 하지만 앱이 특정 모디파이어 심볼을 제외한 모든 키 입력에 반응하는 상황이라면, 첫번째나 세번째 방법을 택해야 합니다.
-  - 세번째는 xkb 설정을 통해 해당 키의 키심을 변경하는 것입니다. 예를들어 하이퍼랜드를 사용할 경우, 모드 트리거 키의 키심을 Hyper_L 로 설정하면 Super_L 키심에 반응하는 백그라운드 앱들은 반응하지 않게 하면서 메인모드키와 bincur와 하이퍼랜드의 트리거 키로 사용 가능합니다. 
+- If background apps reacting to modifiers like Meta or Alt — when you use them as mode triggers — bothers you, there are three main solutions.
+  - First, set the corresponding mode's `grab` option to `TRUE` in `vmouse.conf`. The side effect is that no other application, including the compositor, can use that key.
+  - Second, use `rewire.conf`. For example, if you want to use the left Meta key as a bincur mode trigger but a browser reacting to the `Super_L` symbol is annoying, you can add ```leftmeta -> f18``` in `rewire.conf`. Since most apps don't react to F18, only bincur gets triggered. If you want a compositor or certain apps to still use the left Meta selectively, replace the left Meta key with F18 in each of those apps' keybind settings. However, if an app reacts to every key input except specific modifier symbols, you'll need to use the first or third solution.
+  - Third, change the key's keysym through xkb configuration. For example, on Hyprland, setting the mode trigger key's keysym to `Hyper_L` makes background apps that react to the `Super_L` symbol stop responding, while still letting the key serve as the main mod key for bincur and Hyprland triggers.
 
 ### Per-device configuration
-레이아웃이 다른 키보드들을 번갈아가며 사용할때 각각 편하게 느껴지는 키바인드가 다를 수 있습니다. 게이밍용이나 작업용 키보드, 노트북의 빌트인 키보드들을 오갈때 매번 번거롭게 설정 파일들을 일일이 수정할 필요가 없도록 디바이스 개별 키바인드 및 리와이어 설정 기능을 제공합니다.
+When you switch between keyboards with different layouts, the keybinds that feel comfortable on each can differ. To save you from manually editing config files every time you swap between a gaming keyboard, a work keyboard, or a laptop's built-in keyboard, bincur provides per-device keybind and rewire configuration.
 
-기본적으로 keymap.conf 와 rewire.conf는 모든 키보드에 디폴트로 적용되는 설정파일 입니다. 특정 키보드에만 다른 설정파일을 적용하고싶다면, 각각 keymap.<디바이스명>.conf 와 rewire.<디바이스명>.conf 형태로 파일명을 짓고 설정 스크립트를 작성하면 됩니다. 사용중인 키보드 디바이스의 이름은 inspect 모드를 통해 간단히 확인할 수 있습니다.
+By default, `keymap.conf` and `rewire.conf` apply to all keyboards. If you want a different configuration for a specific keyboard only, name the files `keymap.<device-name>.conf` and `rewire.<device-name>.conf` respectively and write your settings there. You can easily look up your keyboard device's name through inspect mode.
 
-다음 명령어로 inspect 모드 실행합니다.
+Run inspect mode with the following command:
 ```bash
 bincur -i
 ```
 
-실행 후 디바이스명을 알고싶은 키보드의 아무 키나 눌러보세요. 터미널에 이벤트가 발생한 키보드의 디바이스 이름, 내부 인덱스, 키 이벤트 정보가 나타납니다. 
+After it starts, press any key on the keyboard whose name you want to find. The terminal will print the device name, internal index, and key event info for the keyboard that fired the event.
 
 ---
 
