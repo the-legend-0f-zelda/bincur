@@ -4,19 +4,19 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use Direction::*;
 
-use crate::setup;
-use crate::setup::vmouse::Props;
+use crate::config;
+use crate::config::vmouse::Props;
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
     pub static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new(
         VirtualDevice::builder().unwrap()
             .name("bincur")
-            .with_relative_axes(setup::vmouse::get_rel_axes()).unwrap()
-            .with_keys(setup::vmouse::get_keys()).unwrap()
+            .with_relative_axes(config::vmouse::get_rel_axes()).unwrap()
+            .with_keys(config::vmouse::get_keys()).unwrap()
             .build().unwrap()
     );
-    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*setup::vmouse::load_default());
+    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default());
 }
 
 pub fn mark_active(behavior: &Behavior) -> bool {
@@ -102,62 +102,62 @@ impl Behavior {
             }
 
             Self::LinearModeOn => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    if cfg.mode < 1 {
-                        cfg.mode = 1;
-                        cfg.reset_xy();
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    if mouse.mode < 1 {
+                        mouse.mode = 1;
+                        mouse.reset_xy();
                     }
-                    cfg.grab_linear
+                    mouse.grab_linear
                 });
             },
             Self::LinearModeOff => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    if cfg.mode == 1 { cfg.mode = 0; }
-                    cfg.grab_linear
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    if mouse.mode == 1 { mouse.mode = 0; }
+                    mouse.grab_linear
                 });
             },
 
             Self::LogarithmicModeOn => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    if cfg.mode < 2 {
-                        cfg.mode = 2;
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    if mouse.mode < 2 {
+                        mouse.mode = 2;
                     }
-                    cfg.grab_logarithmic
+                    mouse.grab_logarithmic
                 });
             },
             Self::LogarithmicModeOff => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    if cfg.mode == 2 {
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    if mouse.mode == 2 {
                         if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
-                            cfg.mode = 1;
+                            mouse.mode = 1;
                         }else {
-                            cfg.mode = 0;
+                            mouse.mode = 0;
                         }
-                        cfg.reset_xy();
+                        mouse.reset_xy();
                     }
-                    cfg.grab_logarithmic
+                    mouse.grab_logarithmic
                 });
             },
 
             Self::ScrollModeOn => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    cfg.mode = 3;
-                    cfg.grab_scroll
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    mouse.mode = 3;
+                    mouse.grab_scroll
                 });
             },
             Self::ScrollModeOff => {
-                return VMOUSE_PROPS.with_borrow_mut(|cfg| {
-                    if cfg.mode == 3 {
+                return VMOUSE_PROPS.with_borrow_mut(|mouse| {
+                    if mouse.mode == 3 {
                         if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LogarithmicModeOn)) {
-                            cfg.mode = 2;
+                            mouse.mode = 2;
                         }else if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
-                            cfg.mode = 1;
-                            cfg.reset_xy();
+                            mouse.mode = 1;
+                            mouse.reset_xy();
                         }else {
-                            cfg.mode = 0;
+                            mouse.mode = 0;
                         }
                     }
-                    cfg.grab_scroll
+                    mouse.grab_scroll
                 });
             },
 
@@ -189,22 +189,37 @@ impl Behavior {
 enum Direction {Up, Down, Left, Right,}
 
 fn new_move_event(direction: Direction) -> Vec<InputEvent> {
-    VMOUSE_PROPS.with_borrow_mut(|cfg| {
-        let (axis, step_size) = match (cfg.mode, &direction) {
-            (1, Up) => (RelativeAxisCode::REL_Y, -cfg.step_size_y),
-            (1, Down) => (RelativeAxisCode::REL_Y, cfg.step_size_y),
-            (1, Left) => (RelativeAxisCode::REL_X, -cfg.step_size_x),
-            (1, Right) => (RelativeAxisCode::REL_X, cfg.step_size_x),
+    VMOUSE_PROPS.with_borrow_mut(|mouse| {
+        let (axis, step_size) = match (mouse.mode, &direction) {
+            // Linear mode
+            (1, Up) => (RelativeAxisCode::REL_Y, -mouse.step_size_y),
+            (1, Down) => (RelativeAxisCode::REL_Y, mouse.step_size_y),
+            (1, Left) => (RelativeAxisCode::REL_X, -mouse.step_size_x),
+            (1, Right) => (RelativeAxisCode::REL_X, mouse.step_size_x),
 
-            (2, Up) => {cfg.step_size_y = (cfg.step_size_y+1)>>1; (RelativeAxisCode::REL_Y, -cfg.step_size_y)},
-            (2, Down) => {cfg.step_size_y = (cfg.step_size_y+1)>>1; (RelativeAxisCode::REL_Y, cfg.step_size_y)},
-            (2, Left) => {cfg.step_size_x = (cfg.step_size_x+1)>>1; (RelativeAxisCode::REL_X, -cfg.step_size_x)},
-            (2, Right) => {cfg.step_size_x = (cfg.step_size_x+1)>>1; (RelativeAxisCode::REL_X, cfg.step_size_x)},
+            // Logarithmic mode
+            (2, Up) => {
+                mouse.step_size_y = (mouse.step_size_y+1)>>1;
+                (RelativeAxisCode::REL_Y, -mouse.step_size_y)
+            },
+            (2, Down) => {
+                mouse.step_size_y = (mouse.step_size_y+1)>>1;
+                (RelativeAxisCode::REL_Y, mouse.step_size_y)
+            },
+            (2, Left) => {
+                mouse.step_size_x = (mouse.step_size_x+1)>>1;
+                (RelativeAxisCode::REL_X, -mouse.step_size_x)
+            },
+            (2, Right) => {
+                mouse.step_size_x = (mouse.step_size_x+1)>>1;
+                (RelativeAxisCode::REL_X, mouse.step_size_x)
+            },
 
-            (3, Up) => (RelativeAxisCode::REL_WHEEL, cfg.scroll_dist_y),
-            (3, Down) => (RelativeAxisCode::REL_WHEEL, -cfg.scroll_dist_y),
-            (3, Left) => (RelativeAxisCode::REL_HWHEEL, -cfg.scroll_dist_x),
-            (3, Right) => (RelativeAxisCode::REL_HWHEEL, cfg.scroll_dist_x),
+            // Scroll mode
+            (3, Up) => (RelativeAxisCode::REL_WHEEL, mouse.scroll_dist_y),
+            (3, Down) => (RelativeAxisCode::REL_WHEEL, -mouse.scroll_dist_y),
+            (3, Left) => (RelativeAxisCode::REL_HWHEEL, -mouse.scroll_dist_x),
+            (3, Right) => (RelativeAxisCode::REL_HWHEEL, mouse.scroll_dist_x),
 
             _ => return vec![],
         };
@@ -213,7 +228,7 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
 }
 
 fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
-    if VMOUSE_PROPS.with_borrow(|cfg| cfg.mode) == 0 {return vec![]}
+    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return vec![]}
     return match direction {
         Left => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value)],
         Right => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value)],

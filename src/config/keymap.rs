@@ -1,9 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use evdev::InputEvent;
 
-use crate::{device::{keyboards::{self}, vmouse::Behavior}, setup::config};
+use crate::{config::{KEYCODE_MAX, cleaned_lines}, device::{keyboards::{self}, vmouse::Behavior}};
 
-pub const KEYCODE_MAX:usize = 248;
 
 thread_local! {
     static KEYMAP_FWD: RefCell<Vec<HashMap<Behavior, Rc<Vec<usize>>>>> = RefCell::new(Vec::new());
@@ -27,9 +26,9 @@ pub fn load_cfg_fwd() {
             let lines = match name {
                 Some(name) => {
                     let target_file_name = format!("keymap.{}.conf", name.replace(" ", "_"));
-                    config::cleaned_lines(target_file_name.as_str(), Some("keymap.conf"))
+                    cleaned_lines(target_file_name.as_str(), Some("keymap.conf"))
                 },
-                None => config::cleaned_lines("keymap.conf", None)
+                None => cleaned_lines("keymap.conf", None)
             };
 
             for line in lines {
@@ -97,9 +96,9 @@ pub fn load_cfg_rewire() {
         let cfg_lines = match name {
             Some(name) => {
                 let target_file_name = format!("rewire.{}.conf", name.replace(" ", "_"));
-                config::cleaned_lines(target_file_name.as_str(), Some("rewire.conf"))
+                cleaned_lines(target_file_name.as_str(), Some("rewire.conf"))
             },
-            None => config::cleaned_lines("rewire.conf", None)
+            None => cleaned_lines("rewire.conf", None)
         };
 
         let mut cfg: [u16; KEYCODE_MAX+1] = [0; KEYCODE_MAX+1];

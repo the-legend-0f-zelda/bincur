@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
-use crate::setup::config;
+
+use crate::config::cleaned_lines;
 
 pub static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
 pub static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
@@ -31,7 +32,7 @@ pub fn load_default() -> &'static Props {
     VMOUSE_PROPS_DEFAULT.get_or_init(|| {
         let mut cfg = Props::new();
 
-        for line in config::cleaned_lines("vmouse.conf", None) {
+        for line in cleaned_lines("vmouse.conf", None) {
             let kv:Vec<&str> = line.split(':').collect();
             let [k, v] = kv.as_slice() else {
                   eprintln!("invalid vmouse config: {}", line);

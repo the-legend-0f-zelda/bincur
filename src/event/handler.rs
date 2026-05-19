@@ -1,30 +1,38 @@
-use evdev::{Device, EventType, InputEvent};
+use std::io;
+use arrayvec::ArrayVec;
+use evdev::{Device, EventType};
+use crate::{device::{self, DeviceHandler, keyboards::PRESS_STATE, vmouse::{ACTIVATED_SET, Behavior}}, config::keymap};
 
-use crate::{device::{self, keyboards::PRESS_STATE, vmouse::{ACTIVATED_SET, Behavior}}, setup::keymap};
 
-
-pub fn determine_handler(options: &Vec<String>)
-    -> (fn(&Device, usize, Vec<InputEvent>), bool)
+pub fn determine_handler(options: &Vec<String>) -> (DeviceHandler, bool)
 {
-    match options.get(0)
-        .unwrap_or(&String::from(""))
-        .as_str()
+    match options.first().map(String::as_str)
     {
-        "-v" => {
+        Some("-v") => {
             println!("bincur {}", env!("CARGO_PKG_VERSION"));
             std::process::exit(0);
         },
-        "-i" => {
+        Some("-i") => {
             println!("[START] keyboard inspect mode");
             println!("Press ESC to quit");
             (inspect_keyboard, false)
         },
-        _ => (emulate_mouse, true)
+        Some(unknwon) => {
+            eprintln!("Unkown option: {}", unknwon);
+            std::process::exit(0);
+        },
+        None => (emulate_mouse, true)
     }
 }
 
-fn inspect_keyboard(keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
-    for ev in events {
+fn inspect_keyboard(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
+{
+    let kbd_name = match keyboard.name() {
+        Some(name) => name.replace(" ", "_"),
+        None => String::from("")
+    };
+
+    for ev in keyboard.fetch_events()? {
         if EventType::KEY!=ev.event_type() {continue}
 
         if ev.code() == 1 {
@@ -32,20 +40,18 @@ fn inspect_keyboard(keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) 
             std::process::exit(0);
         }
 
-        let kbd_name = match keyboard.name() {
-            Some(name) => name.replace(" ", "_"),
-            None => String::from("")
-        };
-
         println!("===================================");
         println!("KEYBOARD_NAME: {}", kbd_name);
         println!("KEYBOARD_INDEX: {}", kbd_idx);
         println!("KEY_EVENT: {:#?}", ev);
     }
+
+    Ok(())
 }
 
-fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
-    for mut ev in events {
+fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
+{
+    for mut ev in keyboard.fetch_events()? {
         if EventType::KEY != ev.event_type() {continue}
 
         ev = keymap::rewire(ev, kbd_idx);
@@ -65,7 +71,7 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
             continue;
         };
 
-        let mut to_dispatch:Vec<Behavior> = Vec::new();
+        let mut to_dispatch:ArrayVec<Behavior, 16> = ArrayVec::new();
 
         if value > 0 { // On key down
             for behavior in related_behaviors.iter() {
@@ -91,7 +97,7 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
             }
 
             let mut max_combo_len = 0;
-            let mut longest: Vec<Behavior> = Vec::new();
+            let mut longest: ArrayVec<Behavior, 16> = ArrayVec::new();
 
             ACTIVATED_SET.with_borrow(|a_set| {
                 for a in a_set.iter() {
@@ -129,9 +135,10 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
             }
         }
 
-        let mut grab = false;
+        let mut should_grab = false;
         for behavior in to_dispatch {
-            grab |= behavior.dispatch();
+            // TODO: 디스배치함수에 배열 통째로 넘기고 batch emit, or연산된 값 받게 수정
+            should_grab |= behavior.dispatch();
         }
 
         PRESS_STATE.with_borrow_mut(|p_state| {
@@ -139,13 +146,15 @@ fn emulate_mouse(_keyboard: &Device, kbd_idx: usize, events: Vec<InputEvent>) {
             else {return};
 
             if value > 0 {
-                slot.1 = grab;
+                slot.1 = should_grab;
             }else {
-                grab = slot.1;
+                should_grab = slot.1;
                 slot.1 = false;
             }
         });
 
-        if !grab {device::keyboards::pass_through(ev);}
+        if !should_grab {device::keyboards::pass_through(ev);}
     }
+
+    Ok(())
 }

@@ -1,4 +1,9 @@
+pub mod vmouse;
+pub mod keymap;
+
 use std::{fs::File, io::{BufRead, BufReader}, path::PathBuf, sync::OnceLock};
+
+pub const KEYCODE_MAX:usize = 248;
 
 pub static CONF_HOME:OnceLock<PathBuf> = OnceLock::new();
 pub fn resolve_path() -> &'static PathBuf {

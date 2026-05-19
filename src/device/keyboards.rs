@@ -1,16 +1,16 @@
 use std::{cell::RefCell, path::PathBuf};
 use evdev::{AttributeSet, Device, InputEvent, KeyCode, uinput::VirtualDevice};
 
-use crate::setup::keymap::KEYCODE_MAX;
+use crate::config::KEYCODE_MAX;
+
 
 thread_local! {
     pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
-    /// Pressed state indexed by evdev scancode (KEY_RESERVED=0 .. KEY_MICMUTE=248).
+    /// Pressed state indexed by evdev scancode
     pub static PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
 
     /// Virtual device for forwarding unbound key events.
-    /// evdev 0.13.2: highest defined key code is 0x2e7 (BTN_TRIGGER_HAPPY40)
     pub static VKEYBOARD_PASSTHROUGH:RefCell<VirtualDevice> = RefCell::new(
         VirtualDevice::builder().unwrap()
             .name("bincur-vkeyboard")
