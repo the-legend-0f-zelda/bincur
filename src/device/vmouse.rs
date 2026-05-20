@@ -1,10 +1,11 @@
+use arrayvec::ArrayVec;
 use evdev::{KeyCode, RelativeAxisCode};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent};
 use std::cell::RefCell;
 use std::collections::HashSet;
 use Direction::*;
 
-use crate::config;
+use crate::config::{self, keymap};
 use crate::config::vmouse::Props;
 
 thread_local! {
@@ -16,7 +17,7 @@ thread_local! {
             .with_keys(config::vmouse::get_keys()).unwrap()
             .build().unwrap()
     );
-    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default());
+    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default_props());
 }
 
 pub fn mark_active(behavior: &Behavior) -> bool {
@@ -27,6 +28,39 @@ pub fn mark_active(behavior: &Behavior) -> bool {
 pub fn mark_inactive(behavior: &Behavior) -> bool {
     ACTIVATED_SET
         .with_borrow_mut(|a_set| a_set.remove(behavior))
+}
+
+pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
+{
+    let mut longest: ArrayVec<Behavior, 16> = ArrayVec::new();
+    let mut max_combo_len = 0;
+
+    ACTIVATED_SET.with_borrow(|a_set| {
+        for a in a_set.iter() {
+            match a {
+                Behavior::LinearModeOn
+                | Behavior::LogarithmicModeOn
+                | Behavior::ScrollModeOn
+                | Behavior::Exit => {
+                    continue;
+                },
+                _ => {
+                    let len = match keymap::get_combo(kbd_idx, a) {
+                        Some(combo) => combo.len(),
+                        None => 0
+                    };
+                    if len < max_combo_len {continue}
+                    if len > max_combo_len {
+                        longest.clear();
+                        max_combo_len = len;
+                    }
+                    longest.push(a.clone());
+                }
+            }
+        }
+    });
+
+    longest
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
@@ -188,7 +222,8 @@ impl Behavior {
 
 enum Direction {Up, Down, Left, Right,}
 
-fn new_move_event(direction: Direction) -> Vec<InputEvent> {
+fn new_move_event(direction: Direction) -> Vec<InputEvent>
+{
     VMOUSE_PROPS.with_borrow_mut(|mouse| {
         let (axis, step_size) = match (mouse.mode, &direction) {
             // Linear mode
@@ -223,6 +258,7 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent> {
 
             _ => return vec![],
         };
+
         vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, step_size)]
     })
 }

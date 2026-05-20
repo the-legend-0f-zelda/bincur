@@ -60,6 +60,29 @@ pub fn names() -> Vec<Option<String>> {
     names
 }
 
+pub fn update_press_state(key_code: usize, key_value: i32) {
+    PRESS_STATE.with_borrow_mut(|p_state| {
+        match p_state.get_mut(key_code) {
+            Some(slot) => slot.0 = key_value > 0,
+            None => {}
+        };
+    });
+}
+
+pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool) {
+    PRESS_STATE.with_borrow_mut(|p_state| {
+        let Some(slot) = p_state.get_mut(key_code)
+        else {return};
+
+        if key_value > 0 {
+            slot.1 = *should_grab;
+        }else {
+            *should_grab = slot.1;
+            slot.1 = false;
+        }
+    });
+}
+
 pub fn pass_through(event: InputEvent) {
     VKEYBOARD_PASSTHROUGH.with_borrow_mut(|vkeyboard| {
         vkeyboard.emit(&[event]).unwrap();

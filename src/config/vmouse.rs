@@ -28,7 +28,7 @@ pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
     })
 }
 
-pub fn load_default() -> &'static Props {
+pub fn load_default_props() -> &'static Props {
     VMOUSE_PROPS_DEFAULT.get_or_init(|| {
         let mut cfg = Props::new();
 
@@ -82,7 +82,7 @@ impl Props {
     }
 
     pub fn reset_xy(&mut self) {
-        let default = load_default();
+        let default = load_default_props();
         self.step_size_x = default.step_size_x;
         self.step_size_y = default.step_size_y;
         self.scroll_dist_x = default.scroll_dist_x;
