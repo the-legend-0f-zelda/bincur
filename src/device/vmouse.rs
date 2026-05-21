@@ -129,7 +129,7 @@ impl Behavior {
     }
 
     pub fn dispatch(&self) -> bool {
-        let events: Vec<InputEvent> = match self {
+        let Some(event) = (match self {
             Self::Exit => {
                 println!("Exit bincur.");
                 std::process::exit(0);
@@ -206,12 +206,13 @@ impl Behavior {
             Self::ReleaseRight => new_click_event(Right, 0),
 
             Self::KeyUp => return true
+
+        })else {
+            return false;
         };
 
-        if events.is_empty() {return false;}
-
         VMOUSE_DEVICE.with_borrow_mut(|device| {
-            if let Err(e) = device.emit(&events) {
+            if let Err(e) = device.emit(&[event]) {
                 eprintln!("ERROR - emit failed: {}", e);
             }
         });
@@ -222,7 +223,7 @@ impl Behavior {
 
 enum Direction {Up, Down, Left, Right,}
 
-fn new_move_event(direction: Direction) -> Vec<InputEvent>
+fn new_move_event(direction: Direction) -> Option<InputEvent>
 {
     VMOUSE_PROPS.with_borrow_mut(|mouse| {
         let (axis, step_size) = match (mouse.mode, &direction) {
@@ -256,18 +257,19 @@ fn new_move_event(direction: Direction) -> Vec<InputEvent>
             (3, Left) => (RelativeAxisCode::REL_HWHEEL, -mouse.scroll_dist_x),
             (3, Right) => (RelativeAxisCode::REL_HWHEEL, mouse.scroll_dist_x),
 
-            _ => return vec![],
+            _ => return None,
         };
 
-        vec![InputEvent::new_now(EventType::RELATIVE.0, axis.0, step_size)]
+        Some( InputEvent::new_now(EventType::RELATIVE.0, axis.0, step_size) )
     })
 }
 
-fn new_click_event(direction: Direction, value: i32) -> Vec<InputEvent> {
-    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return vec![]}
+fn new_click_event(direction: Direction, value: i32) -> Option<InputEvent> {
+    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return None}
+
     return match direction {
-        Left => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value)],
-        Right => vec![InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value)],
-        _ => vec![]
+        Left => Some( InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value) ),
+        Right => Some( InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value) ),
+        _ => None
     }
 }

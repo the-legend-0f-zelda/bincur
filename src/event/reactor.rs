@@ -9,7 +9,7 @@ pub struct Reactor {
     monitor: udev::MonitorSocket,
     poll: Poll,
     handle_device: DeviceHandler,
-    grab: bool
+    grab_default: bool
 }
 
 impl Reactor {
@@ -20,7 +20,7 @@ impl Reactor {
             .listen().unwrap();
 
         let poll = Poll::new().unwrap();
-        let (handle_device, grab) = determine_handler(&args);
+        let (handle_device, grab_default) = determine_handler(&args);
 
         poll.registry().register(
             &mut SourceFd(&monitor.as_raw_fd()),
@@ -33,7 +33,7 @@ impl Reactor {
             monitor,
             poll,
             handle_device,
-            grab
+            grab_default
         };
 
         zelf.reset();
@@ -43,7 +43,7 @@ impl Reactor {
     fn register_keyboards(&self) {
         KEYBOARDS.with_borrow_mut(|v| {
             v.retain_mut(|(path, device)| {
-                if self.grab {
+                if self.grab_default {
                     if let Err(e) = device.grab() {
                         eprintln!("grab failed ({}): {e}", path.display());
                         return false;
@@ -80,6 +80,7 @@ impl Reactor {
 
     pub fn reset(&self) {
         self.deregister_keyboards();
+
         keyboards::scan();
         keymap::initialize();
 

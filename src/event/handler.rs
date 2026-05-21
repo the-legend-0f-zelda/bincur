@@ -61,17 +61,18 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
 
         device::keyboards::update_press_state(code, value);
 
-        let related_behaviors = match keymap::get_related_behaviors(kbd_idx, code) {
-            Some(behaviors) => behaviors,
-            None => {
-                device::keyboards::pass_through(ev);
-                continue;
+        let related_behaviors = match keymap::get_related_behaviors(kbd_idx, code)
+            {
+                Some(behaviors) => behaviors,
+                None => {
+                    device::keyboards::pass_through(ev);
+                    continue;
             }
         };
 
         let mut to_dispatch:ArrayVec<Behavior, 16> = ArrayVec::new();
 
-        if value > 0 { // On keyup
+        if value > 0 { // On keydown
             for behavior in related_behaviors.iter() {
                 let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                 else {continue};
@@ -88,7 +89,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
                         _ => {
                             if device::vmouse::VMOUSE_PROPS
                                 .with_borrow(|cfg| cfg.mode) > 0
-                            {device::vmouse::mark_active(behavior);}
+                            { device::vmouse::mark_active(behavior); }
                         }
                     }
                 }
@@ -109,12 +110,13 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
         let mut should_grab = false;
 
         for behavior in to_dispatch {
-            // TODO: 디스배치함수에 배열 통째로 넘기고 batch emit, or연산된 값 받게 수정
             should_grab |= behavior.dispatch();
         }
 
         device::keyboards::update_grab_state(code, value, &mut should_grab);
-        if !should_grab {device::keyboards::pass_through(ev);}
+        if !should_grab {
+            device::keyboards::pass_through(ev);
+        }
     }
 
     Ok(())
