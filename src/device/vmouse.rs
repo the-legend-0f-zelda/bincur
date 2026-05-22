@@ -30,6 +30,10 @@ pub fn mark_inactive(behavior: &Behavior) -> bool {
         .with_borrow_mut(|a_set| a_set.remove(behavior))
 }
 
+pub fn is_active(behavior: &Behavior) -> bool {
+    ACTIVATED_SET.with_borrow(|a_set| a_set.contains(behavior))
+}
+
 pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
 {
     let mut longest: ArrayVec<Behavior, 16> = ArrayVec::new();
@@ -162,7 +166,7 @@ impl Behavior {
             Self::LogarithmicModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode == 2 {
-                        if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
+                        if is_active(&Behavior::LinearModeOn) {
                             mouse.mode = 1;
                         }else {
                             mouse.mode = 0;
@@ -182,9 +186,9 @@ impl Behavior {
             Self::ScrollModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode == 3 {
-                        if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LogarithmicModeOn)) {
+                        if is_active(&Behavior::LogarithmicModeOn) {
                             mouse.mode = 2;
-                        }else if ACTIVATED_SET.with_borrow(|a| a.contains(&Behavior::LinearModeOn)) {
+                        }else if is_active(&Behavior::LinearModeOn) {
                             mouse.mode = 1;
                             mouse.reset_xy();
                         }else {
