@@ -17,6 +17,7 @@
   - [Rewire](#rewire)
   - [Per-device configuration](#per-device-configuration)
 - [References](#references)
+- [License](#license)
 
 <br>
 
@@ -220,3 +221,17 @@ After it starts, press any key on the keyboard whose name you want to find. The 
 ## References
 
 - [Key names (evdev scancodes)](https://docs.rs/evdev/0.13.2/src/evdev/scancodes.rs.html#26-579) — valid key identifiers for the left side of `:`
+
+<br>
+
+## License
+
+Copyright (C) 2026 master@scamsite.biz
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License, version 3, as published by the
+Free Software Foundation. See the [LICENSE](LICENSE) file for the full text.
+
+> **AI disclosure:** This README was originally written in Korean by the author;
+> its English text was translated with the assistance of AI tools. The shell
+> script under `scripts/` was written with AI assistance.

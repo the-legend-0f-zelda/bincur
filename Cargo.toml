@@ -2,6 +2,7 @@
 name = "bincur"
 version = "0.3.7"
 edition = "2024"
+license = "GPL-3.0-only"
 
 [dependencies]
 mio = { version = "1", features = ["os-poll", "os-ext"] }
