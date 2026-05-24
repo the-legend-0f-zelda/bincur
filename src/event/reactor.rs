@@ -1,7 +1,7 @@
-use std::{io, os::fd::AsRawFd};
+use std::os::fd::AsRawFd;
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
-use crate::{device::{DeviceHandler, keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, event::handler::determine_handler, config::keymap};
+use crate::{config::keymap, device::{DeviceError, DeviceHandler, keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, event::handler::determine_handler};
 
 
 pub struct Reactor {
@@ -90,7 +90,7 @@ impl Reactor {
         self.register_keyboards();
     }
 
-    pub fn run(&mut self) -> io::Result<()> {
+    pub fn run(&mut self) -> Result<(), DeviceError>{
         loop {
             self.poll.poll(&mut self.events, None)?;
             let mut needs_reset = false;
@@ -105,7 +105,9 @@ impl Reactor {
                         if !node.to_string_lossy().starts_with("/dev/input/event") { continue }
 
                         match device.event_type() {
-                            udev::EventType::Add | udev::EventType::Remove => needs_reset = true,
+                            udev::EventType::Add => return Err(DeviceError::Connected),
+                            udev::EventType::Remove => return Err(DeviceError::Disconnected),
+                            udev::EventType::Change => return Err(DeviceError::ResetRequested),
                             _ => {}
                         }
                     }
@@ -118,9 +120,9 @@ impl Reactor {
                     loop {
                         match (self.handle_device)(target, kbd_idx) {
                             Ok(iter) => iter,
-                            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return false,
-                            Err(e) => {
-                                eprintln!("fetch_events error (kbd_idx={kbd_idx}): {}", e);
+                            Err(DeviceError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock => return false,
+                            Err(_) => {
+                                eprintln!("[RESET REQUIRED] fetch_events error (kbd_idx={kbd_idx})");
                                 return true;
                             }
                         };
@@ -128,9 +130,7 @@ impl Reactor {
                 });
             }
 
-            if needs_reset {
-                return Err(io::Error::new(io::ErrorKind::Interrupted, "reset required"))
-            }
+            if needs_reset {return Err(DeviceError::ResetRequested);}
         }
     }
 }

@@ -7,6 +7,7 @@ use Direction::*;
 
 use crate::config::{self, keymap};
 use crate::config::vmouse::Props;
+use crate::device::DeviceError;
 
 thread_local! {
     pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
@@ -70,6 +71,7 @@ pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub enum Behavior {
     Exit,
+    Reset,
 
     LinearModeOn,
     LogarithmicModeOn,
@@ -97,6 +99,7 @@ impl Behavior {
     pub fn from_str(behavior: &str) -> Self {
         match behavior.to_uppercase().as_str() {
             "EXIT" => Self::Exit,
+            "RESET" => Self::Reset,
 
             "LINEAR_MODE" => Self::LinearModeOn,
             "LOGARITHMIC_MODE" => Self::LogarithmicModeOn,
@@ -132,12 +135,15 @@ impl Behavior {
         }
     }
 
-    pub fn dispatch(&self) -> bool {
+    pub fn dispatch(&self) -> Result<bool, DeviceError> {
         let Some(event) = (match self {
             Self::Exit => {
                 println!("Exit bincur.");
                 std::process::exit(0);
-            }
+            },
+            Self::Reset => {
+                return Err(DeviceError::ResetRequested)
+            },
 
             Self::LinearModeOn => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
@@ -145,13 +151,13 @@ impl Behavior {
                         mouse.mode = 1;
                         mouse.reset_xy();
                     }
-                    mouse.grab_linear
+                    Ok(mouse.grab_linear)
                 });
             },
             Self::LinearModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode == 1 { mouse.mode = 0; }
-                    mouse.grab_linear
+                    Ok(mouse.grab_linear)
                 });
             },
 
@@ -160,7 +166,7 @@ impl Behavior {
                     if mouse.mode < 2 {
                         mouse.mode = 2;
                     }
-                    mouse.grab_logarithmic
+                    Ok(mouse.grab_logarithmic)
                 });
             },
             Self::LogarithmicModeOff => {
@@ -173,14 +179,14 @@ impl Behavior {
                         }
                         mouse.reset_xy();
                     }
-                    mouse.grab_logarithmic
+                    Ok(mouse.grab_logarithmic)
                 });
             },
 
             Self::ScrollModeOn => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     mouse.mode = 3;
-                    mouse.grab_scroll
+                    Ok(mouse.grab_scroll)
                 });
             },
             Self::ScrollModeOff => {
@@ -195,7 +201,7 @@ impl Behavior {
                             mouse.mode = 0;
                         }
                     }
-                    mouse.grab_scroll
+                    Ok(mouse.grab_scroll)
                 });
             },
 
@@ -209,10 +215,10 @@ impl Behavior {
             Self::ReleaseLeft => new_click_event(Left, 0),
             Self::ReleaseRight => new_click_event(Right, 0),
 
-            Self::KeyUp => return true
+            Self::KeyUp => return Ok(true)
 
         })else {
-            return false;
+            return Ok(false);
         };
 
         VMOUSE_DEVICE.with_borrow_mut(|device| {
@@ -221,7 +227,7 @@ impl Behavior {
             }
         });
 
-        true
+        Ok(true)
     }
 }
 

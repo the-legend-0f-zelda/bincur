@@ -1,7 +1,6 @@
-use std::io;
 use arrayvec::ArrayVec;
 use evdev::{Device, EventType};
-use crate::{config::keymap, device::{self, DeviceHandler, vmouse::Behavior}};
+use crate::{config::keymap, device::{self, DeviceError, DeviceHandler, vmouse::Behavior}};
 
 
 pub fn determine_handler(options: &Vec<String>) -> (DeviceHandler, bool)
@@ -25,7 +24,7 @@ pub fn determine_handler(options: &Vec<String>) -> (DeviceHandler, bool)
     }
 }
 
-fn inspect_keyboard(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
+fn inspect_keyboard(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceError>
 {
     let kbd_name = match keyboard.name() {
         Some(name) => name.replace(" ", "_"),
@@ -50,7 +49,7 @@ fn inspect_keyboard(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
     Ok(())
 }
 
-fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
+fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceError>
 {
     for mut ev in keyboard.fetch_events()? {
         if EventType::KEY != ev.event_type() {continue}
@@ -110,7 +109,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> io::Result<()>
         let mut should_grab = false;
 
         for behavior in to_dispatch {
-            should_grab |= behavior.dispatch();
+            should_grab |= behavior.dispatch()?;
         }
 
         device::keyboards::update_grab_state(code, value, &mut should_grab);

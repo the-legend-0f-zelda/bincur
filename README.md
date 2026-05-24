@@ -164,8 +164,9 @@ scroll_dist_y : 2
 
 `~/.config/bincur/keymap.conf:`
 ```conf
-# 0. Terminate process
+# 0. Process
 leftctrl+q : EXIT
+leftmeta+leftctrl+r : RESET
 
 # 1. Trigger virtual mouse mode
 leftalt : LINEAR_MODE
