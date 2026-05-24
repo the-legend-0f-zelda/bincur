@@ -80,14 +80,20 @@ impl Reactor {
 
     pub fn reset(&self) {
         self.deregister_keyboards();
-        device::keyboards::scan();
-        config::keymap::initialize();
+
         device::vmouse::clear_activated_set();
         device::keyboards::clear_press_state();
+
+        device::keyboards::scan();
+        config::keymap::initialize();
+
+        config::vmouse::initialize();
+        device::vmouse::initialize();
+
         self.register_keyboards();
     }
 
-    pub fn run(&mut self) -> Result<(), DeviceError>{
+    pub fn run(&mut self) -> Result<(), DeviceError> {
         loop {
             self.poll.poll(&mut self.events, None)?;
             let mut needs_reset = false;

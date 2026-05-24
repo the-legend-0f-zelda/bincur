@@ -18,7 +18,7 @@ thread_local! {
             .with_keys(config::vmouse::get_keys()).unwrap()
             .build().unwrap()
     );
-    static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default_props());
+    static VMOUSE_PROPS: RefCell<Props> = RefCell::new(Props::new());
 }
 
 pub fn mark_active(behavior: &Behavior) -> bool {
@@ -37,6 +37,12 @@ pub fn is_active(behavior: &Behavior) -> bool {
 
 pub fn clear_activated_set() {
     ACTIVATED_SET.with_borrow_mut(|a_set| a_set.clear());
+}
+
+pub fn initialize() {
+    VMOUSE_PROPS.with_borrow_mut(|props| {
+        *props = config::vmouse::copy_default_props()
+    });
 }
 
 pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>

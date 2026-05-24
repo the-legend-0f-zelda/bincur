@@ -1,11 +1,13 @@
-use std::sync::OnceLock;
+use std::{cell::RefCell, sync::OnceLock};
 use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
 
 use crate::config::cleaned_lines;
 
 static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
 static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
-static VMOUSE_PROPS_DEFAULT: OnceLock<Props> = OnceLock::new();
+thread_local! {
+    static VMOUSE_PROPS_DEFAULT: RefCell<Props> = RefCell::new(Props::new());
+}
 
 pub fn get_keys() -> &'static AttributeSet<KeyCode> {
     VMOUSE_KEYS.get_or_init(|| {
@@ -28,31 +30,14 @@ pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
     })
 }
 
-pub fn load_default_props() -> &'static Props {
-    VMOUSE_PROPS_DEFAULT.get_or_init(|| {
-        let mut cfg = Props::new();
+pub fn copy_default_props() -> Props {
+    VMOUSE_PROPS_DEFAULT.with_borrow(|default| *default)
+}
 
-        for line in cleaned_lines("vmouse.conf", None) {
-            let kv:Vec<&str> = line.split(':').collect();
-            let [k, v] = kv.as_slice() else {
-                  eprintln!("invalid vmouse config: {}", line);
-                  std::process::exit(1);
-            };
-
-            match *k {
-                "GRAB_LINEAR" => cfg.grab_linear = v.to_uppercase().eq("TRUE"),
-                "GRAB_LOGARITHMIC" => cfg.grab_logarithmic = v.to_uppercase().eq("TRUE"),
-                "GRAB_SCROLL" => cfg.grab_scroll = v.to_uppercase().eq("TRUE"),
-                "STEP_SIZE_X" => cfg.step_size_x = v.parse().unwrap(),
-                "STEP_SIZE_Y" => cfg.step_size_y = v.parse().unwrap(),
-                "SCROLL_DIST_X" => cfg.scroll_dist_x = v.parse().unwrap(),
-                "SCROLL_DIST_Y" => cfg.scroll_dist_y = v.parse().unwrap(),
-                _ => continue
-            }
-        }
-
-        cfg
-    })
+pub fn initialize() {
+    VMOUSE_PROPS_DEFAULT.with_borrow_mut(|default| {
+        *default = Props::load_default();
+    });
 }
 
 #[derive(Clone, Copy)]
@@ -82,10 +67,36 @@ impl Props {
     }
 
     pub fn reset_xy(&mut self) {
-        let default = load_default_props();
-        self.step_size_x = default.step_size_x;
-        self.step_size_y = default.step_size_y;
-        self.scroll_dist_x = default.scroll_dist_x;
-        self.scroll_dist_y = default.scroll_dist_y;
+        VMOUSE_PROPS_DEFAULT.with_borrow(|default| {
+            self.step_size_x = default.step_size_x;
+            self.step_size_y = default.step_size_y;
+            self.scroll_dist_x = default.scroll_dist_x;
+            self.scroll_dist_y = default.scroll_dist_y;
+        });
+    }
+
+    pub fn load_default() -> Props {
+        let mut cfg = Props::new();
+
+        for line in cleaned_lines("vmouse.conf", None) {
+            let kv:Vec<&str> = line.split(':').collect();
+            let [k, v] = kv.as_slice() else {
+                  eprintln!("invalid vmouse config: {}", line);
+                  std::process::exit(1);
+            };
+
+            match *k {
+                "GRAB_LINEAR" => cfg.grab_linear = v.to_uppercase().eq("TRUE"),
+                "GRAB_LOGARITHMIC" => cfg.grab_logarithmic = v.to_uppercase().eq("TRUE"),
+                "GRAB_SCROLL" => cfg.grab_scroll = v.to_uppercase().eq("TRUE"),
+                "STEP_SIZE_X" => cfg.step_size_x = v.parse().unwrap(),
+                "STEP_SIZE_Y" => cfg.step_size_y = v.parse().unwrap(),
+                "SCROLL_DIST_X" => cfg.scroll_dist_x = v.parse().unwrap(),
+                "SCROLL_DIST_Y" => cfg.scroll_dist_y = v.parse().unwrap(),
+                _ => continue
+            }
+        }
+
+        cfg
     }
 }
