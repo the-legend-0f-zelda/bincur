@@ -86,9 +86,9 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                             to_dispatch.push(behavior.clone());
                         },
                         _ => {
-                            if device::vmouse::VMOUSE_PROPS
-                                .with_borrow(|cfg| cfg.mode) > 0
-                            { device::vmouse::mark_active(behavior); }
+                            if device::vmouse::get_mode() > 0 {
+                                device::vmouse::mark_active(behavior);
+                            }
                         }
                     }
                 }

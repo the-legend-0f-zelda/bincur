@@ -8,16 +8,16 @@ thread_local! {
     pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
     /// Pressed state indexed by evdev scancode
-    pub static PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
+    static PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
 
     /// Virtual device for forwarding unbound key events.
-    pub static VKEYBOARD_PASSTHROUGH:RefCell<VirtualDevice> = RefCell::new(
+    static VKEYBOARD_PASSTHROUGH:RefCell<VirtualDevice> = RefCell::new(
         VirtualDevice::builder().unwrap()
             .name("bincur-vkeyboard")
             .with_keys(&{
                 let mut keys = AttributeSet::new();
-                for code in 0..KEYCODE_MAX as u16 {
-                    keys.insert(KeyCode::new(code));
+                for key_code in 0..KEYCODE_MAX as u16 {
+                    keys.insert(KeyCode::new(key_code));
                 }
                 keys
             }).unwrap()
@@ -25,31 +25,24 @@ thread_local! {
     );
 }
 
-pub fn all_pressed(combo: &[usize]) -> bool {
-    PRESS_STATE.with_borrow(|ps| {
-        combo.iter()
-            .all(|&key| ps.get(key).unwrap_or(&(false, false)).0)
-    })
-}
-
 pub fn scan() {
-    KEYBOARDS.with_borrow_mut(|v| {v.clear();});
+    KEYBOARDS.with_borrow_mut(|keyboards| {keyboards.clear();});
 
-    for (path, dev) in evdev::enumerate() {
-        if dev.name().map_or(false, |n| n.starts_with("bincur")) {continue}
-        if dev.supported_keys().map_or(false,
-            |k| k.contains(evdev::KeyCode::KEY_A)
-            && k.contains(evdev::KeyCode::KEY_ENTER)
-            && k.contains(evdev::KeyCode::KEY_SPACE)
+    for (path, device) in evdev::enumerate() {
+        if device.name().map_or(false, |name| name.starts_with("bincur")) {continue}
+        if device.supported_keys().map_or(false,
+            |supported| supported.contains(evdev::KeyCode::KEY_A)
+            && supported.contains(evdev::KeyCode::KEY_ENTER)
+            && supported.contains(evdev::KeyCode::KEY_SPACE)
         )
-        { KEYBOARDS.with_borrow_mut(|v| v.push((path, dev))); }
+        { KEYBOARDS.with_borrow_mut(|keyboards| keyboards.push((path, device))); }
     }
 }
 
 pub fn names() -> Vec<Option<String>> {
     let mut names:Vec<Option<String>> = Vec::new();
-    KEYBOARDS.with_borrow(|kbds| {
-        for (_path, kbd) in kbds {
+    KEYBOARDS.with_borrow(|keyboards| {
+        for (_path, kbd) in keyboards {
             let name: Option<String> = match kbd.name() {
                 Some(name) => Some(name.to_string()),
                 None => None
@@ -58,6 +51,13 @@ pub fn names() -> Vec<Option<String>> {
         }
     });
     names
+}
+
+pub fn all_pressed(combo: &[usize]) -> bool {
+    PRESS_STATE.with_borrow(|key_states| {
+        combo.iter()
+            .all(|&key_code| key_states.get(key_code).unwrap_or(&(false, false)).0)
+    })
 }
 
 pub fn update_press_state(key_code: usize, key_value: i32) {
@@ -81,6 +81,13 @@ pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool
             slot.1 = false;
         }
     });
+}
+
+pub fn clear_press_state() {
+    PRESS_STATE.with_borrow_mut(|key_states|
+        key_states.iter_mut()
+            .for_each(|key_state| *key_state=(false, false) )
+    );
 }
 
 pub fn pass_through(event: InputEvent) {

@@ -3,8 +3,8 @@ use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
 
 use crate::config::cleaned_lines;
 
-pub static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
-pub static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
+static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
+static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
 static VMOUSE_PROPS_DEFAULT: OnceLock<Props> = OnceLock::new();
 
 pub fn get_keys() -> &'static AttributeSet<KeyCode> {

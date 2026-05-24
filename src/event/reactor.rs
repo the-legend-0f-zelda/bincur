@@ -1,7 +1,7 @@
 use std::os::fd::AsRawFd;
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
-use crate::{config::keymap, device::{DeviceError, DeviceHandler, keyboards::{self, KEYBOARDS, PRESS_STATE}, vmouse::ACTIVATED_SET}, event::handler::determine_handler};
+use crate::{config, device::{self, DeviceError, DeviceHandler, keyboards::KEYBOARDS}, event::handler::determine_handler};
 
 
 pub struct Reactor {
@@ -28,7 +28,7 @@ impl Reactor {
             Interest::READABLE
         ).unwrap();
 
-        let zelf = Self{
+        let new_reactor = Self{
             events: Events::with_capacity(16),
             monitor,
             poll,
@@ -36,20 +36,20 @@ impl Reactor {
             grab_default
         };
 
-        zelf.reset();
-        zelf
+        new_reactor.reset();
+        new_reactor
     }
 
     fn register_keyboards(&self) {
-        KEYBOARDS.with_borrow_mut(|v| {
-            v.retain_mut(|(path, device)| {
+        KEYBOARDS.with_borrow_mut(|keyboards| {
+            keyboards.retain_mut(|(path, keyboard)| {
                 if self.grab_default {
-                    if let Err(e) = device.grab() {
+                    if let Err(e) = keyboard.grab() {
                         eprintln!("grab failed ({}): {e}", path.display());
                         return false;
                     }
                 }
-                if let Err(e) = device.set_nonblocking(true) {
+                if let Err(e) = keyboard.set_nonblocking(true) {
                     eprintln!("set_nonblocking failed ({}): {e}", path.display());
                     return false;
                 }
@@ -57,9 +57,9 @@ impl Reactor {
                 true
             });
 
-            for (dev_idx, (path, device)) in v.iter_mut().enumerate() {
+            for (dev_idx, (path, keyboard)) in keyboards.iter_mut().enumerate() {
                 if let Err(e) = self.poll.registry().register(
-                    &mut SourceFd(&device.as_raw_fd()),
+                    &mut SourceFd(&keyboard.as_raw_fd()),
                     Token(dev_idx+1),
                     Interest::READABLE
                 ) {
@@ -80,13 +80,10 @@ impl Reactor {
 
     pub fn reset(&self) {
         self.deregister_keyboards();
-
-        keyboards::scan();
-        keymap::initialize();
-
-        ACTIVATED_SET.with_borrow_mut(|active| active.clear());
-        PRESS_STATE.with_borrow_mut(|press| press.iter_mut().for_each(|s| *s=(false, false) ));
-
+        device::keyboards::scan();
+        config::keymap::initialize();
+        device::vmouse::clear_activated_set();
+        device::keyboards::clear_press_state();
         self.register_keyboards();
     }
 

@@ -10,15 +10,15 @@ use crate::config::vmouse::Props;
 use crate::device::DeviceError;
 
 thread_local! {
-    pub static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
-    pub static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new(
+    static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
+    static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new(
         VirtualDevice::builder().unwrap()
             .name("bincur")
             .with_relative_axes(config::vmouse::get_rel_axes()).unwrap()
             .with_keys(config::vmouse::get_keys()).unwrap()
             .build().unwrap()
     );
-    pub static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default_props());
+    static VMOUSE_PROPS: RefCell<Props> = RefCell::new(*config::vmouse::load_default_props());
 }
 
 pub fn mark_active(behavior: &Behavior) -> bool {
@@ -33,6 +33,10 @@ pub fn mark_inactive(behavior: &Behavior) -> bool {
 
 pub fn is_active(behavior: &Behavior) -> bool {
     ACTIVATED_SET.with_borrow(|a_set| a_set.contains(behavior))
+}
+
+pub fn clear_activated_set() {
+    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.clear());
 }
 
 pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
@@ -66,6 +70,10 @@ pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
     });
 
     longest
+}
+
+pub fn get_mode() -> u8 {
+    VMOUSE_PROPS.with_borrow(|mouse| mouse.mode)
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
