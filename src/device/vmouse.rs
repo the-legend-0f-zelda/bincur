@@ -22,13 +22,11 @@ thread_local! {
 }
 
 pub fn mark_active(behavior: &Behavior) -> bool {
-    ACTIVATED_SET
-        .with_borrow_mut(|a_set| a_set.insert(behavior.clone()))
+    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.insert(behavior.clone()))
 }
 
 pub fn mark_inactive(behavior: &Behavior) -> bool {
-    ACTIVATED_SET
-        .with_borrow_mut(|a_set| a_set.remove(behavior))
+    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.remove(behavior))
 }
 
 pub fn is_active(behavior: &Behavior) -> bool {
@@ -150,7 +148,8 @@ impl Behavior {
     }
 
     pub fn dispatch(&self) -> Result<bool, DeviceError> {
-        let Some(event) = (match self {
+
+        let events:ArrayVec<InputEvent, 2> = match self {
             Self::Exit => {
                 println!("Exit bincur.");
                 std::process::exit(0);
@@ -231,12 +230,10 @@ impl Behavior {
 
             Self::KeyUp => return Ok(true)
 
-        })else {
-            return Ok(false);
         };
 
         VMOUSE_DEVICE.with_borrow_mut(|device| {
-            if let Err(e) = device.emit(&[event]) {
+            if let Err(e) = device.emit(&events) {
                 eprintln!("ERROR - emit failed: {}", e);
             }
         });
@@ -247,53 +244,145 @@ impl Behavior {
 
 enum Direction {Up, Down, Left, Right,}
 
-fn new_move_event(direction: Direction) -> Option<InputEvent>
+fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 {
     VMOUSE_PROPS.with_borrow_mut(|mouse| {
-        let (axis, step_size) = match (mouse.mode, &direction) {
+        let mut events:ArrayVec<InputEvent, 2> = ArrayVec::new();
+
+        match (mouse.mode, &direction) {
             // Linear mode
-            (1, Up) => (RelativeAxisCode::REL_Y, -mouse.step_size_y),
-            (1, Down) => (RelativeAxisCode::REL_Y, mouse.step_size_y),
-            (1, Left) => (RelativeAxisCode::REL_X, -mouse.step_size_x),
-            (1, Right) => (RelativeAxisCode::REL_X, mouse.step_size_x),
+            (1, Up) => {events.push(
+                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, -mouse.step_size_y)
+            )},
+            (1, Down) => {events.push(
+                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, mouse.step_size_y)
+            )},
+            (1, Left) => {events.push(
+                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, -mouse.step_size_x)
+            )},
+            (1, Right) => {events.push(
+                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, mouse.step_size_x)
+            )},
 
             // Logarithmic mode
             (2, Up) => {
                 mouse.step_size_y = (mouse.step_size_y+1)>>1;
-                (RelativeAxisCode::REL_Y, -mouse.step_size_y)
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, -mouse.step_size_y)
+                );
             },
             (2, Down) => {
                 mouse.step_size_y = (mouse.step_size_y+1)>>1;
-                (RelativeAxisCode::REL_Y, mouse.step_size_y)
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, mouse.step_size_y)
+                );
             },
             (2, Left) => {
                 mouse.step_size_x = (mouse.step_size_x+1)>>1;
-                (RelativeAxisCode::REL_X, -mouse.step_size_x)
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, -mouse.step_size_x)
+                );
             },
             (2, Right) => {
                 mouse.step_size_x = (mouse.step_size_x+1)>>1;
-                (RelativeAxisCode::REL_X, mouse.step_size_x)
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, mouse.step_size_x)
+                );
             },
 
             // Scroll mode
-            (3, Up) => (RelativeAxisCode::REL_WHEEL, mouse.scroll_dist_y),
-            (3, Down) => (RelativeAxisCode::REL_WHEEL, -mouse.scroll_dist_y),
-            (3, Left) => (RelativeAxisCode::REL_HWHEEL, -mouse.scroll_dist_x),
-            (3, Right) => (RelativeAxisCode::REL_HWHEEL, mouse.scroll_dist_x),
+            (3, Up) => {
+                mouse.scroll_accum_y += mouse.scroll_dist_y;
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_WHEEL_HI_RES.0,
+                        mouse.scroll_dist_y
+                    )
+                );
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_WHEEL.0,
+                        mouse.scroll_accum_y / 120
+                    )
+                );
+                mouse.scroll_accum_y %= 120;
+            },
+            (3, Down) => {
+                mouse.scroll_accum_y -= mouse.scroll_dist_y;
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_WHEEL_HI_RES.0,
+                        -mouse.scroll_dist_y
+                    )
+                );
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_WHEEL.0,
+                        mouse.scroll_accum_y / 120
+                    )
+                );
+                mouse.scroll_accum_y %= 120;
+            },
+            (3, Left) => {
+                mouse.scroll_accum_x -= mouse.scroll_dist_x;
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_HWHEEL_HI_RES.0,
+                        -mouse.scroll_dist_x
+                    )
+                );
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_HWHEEL.0,
+                        mouse.scroll_accum_x / 120
+                    )
+                );
+                mouse.scroll_accum_x %= 120;
+            },
+            (3, Right) => {
+                mouse.scroll_accum_x += mouse.scroll_dist_x;
+                events.push(
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_HWHEEL_HI_RES.0,
+                        mouse.scroll_dist_x
+                    )
+                );
+                events.push(
+                    InputEvent::new_now(EventType::RELATIVE.0,
+                        RelativeAxisCode::REL_HWHEEL.0,
+                        mouse.scroll_accum_x / 120
+                    )
+                );
+                mouse.scroll_accum_x %= 120;
+            },
 
-            _ => return None,
+            _ => return events
         };
 
-        Some( InputEvent::new_now(EventType::RELATIVE.0, axis.0, step_size) )
+
+        events
     })
 }
 
-fn new_click_event(direction: Direction, value: i32) -> Option<InputEvent> {
-    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return None}
+fn new_click_event(direction: Direction, value: i32) -> ArrayVec<InputEvent, 2> {
+    let mut events:ArrayVec<InputEvent, 2> = ArrayVec::new();
 
-    return match direction {
-        Left => Some( InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.code(), value) ),
-        Right => Some( InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.code(), value) ),
-        _ => None
+    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return events}
+    match direction {
+        Left => {events.push(
+            InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.0, value)
+        )},
+        Right => {events.push(
+            InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_RIGHT.0, value)
+        )},
+        _ => {}
     }
+
+    events
 }

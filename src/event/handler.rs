@@ -107,7 +107,6 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
         }
 
         let mut should_grab = false;
-
         for behavior in to_dispatch {
             should_grab |= behavior.dispatch()?;
         }

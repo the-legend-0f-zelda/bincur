@@ -26,6 +26,8 @@ pub fn get_rel_axes() -> &'static AttributeSet<RelativeAxisCode> {
         axes.insert(RelativeAxisCode::REL_Y);
         axes.insert(RelativeAxisCode::REL_WHEEL);
         axes.insert(RelativeAxisCode::REL_HWHEEL);
+        axes.insert(RelativeAxisCode::REL_WHEEL_HI_RES);
+        axes.insert(RelativeAxisCode::REL_HWHEEL_HI_RES);
         axes
     })
 }
@@ -50,6 +52,8 @@ pub struct Props {
     pub step_size_y: i32,
     pub scroll_dist_x: i32,
     pub scroll_dist_y: i32,
+    pub scroll_accum_x: i32,
+    pub scroll_accum_y: i32,
 }
 
 impl Props {
@@ -62,7 +66,9 @@ impl Props {
             step_size_x: 0,
             step_size_y: 0,
             scroll_dist_x: 0,
-            scroll_dist_y: 0
+            scroll_dist_y: 0,
+            scroll_accum_x: 0,
+            scroll_accum_y: 0
         }
     }
 
