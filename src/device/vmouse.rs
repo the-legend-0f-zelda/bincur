@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use Direction::*;
 
-use crate::config::{self, keymap};
+use crate::config::{self,keymap};
 use crate::config::vmouse::Props;
 use crate::device::DeviceError;
 
@@ -162,7 +162,6 @@ impl Behavior {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode < 1 {
                         mouse.mode = 1;
-                        mouse.reset_xy();
                     }
                     Ok(mouse.grab_linear)
                 });
@@ -190,8 +189,8 @@ impl Behavior {
                         }else {
                             mouse.mode = 0;
                         }
-                        mouse.reset_xy();
                     }
+                    mouse.reset_xy();
                     Ok(mouse.grab_logarithmic)
                 });
             },
@@ -266,25 +265,25 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 
             // Logarithmic mode
             (2, Up) => {
-                mouse.step_size_y = (mouse.step_size_y+1)>>1;
+                mouse.step_size_y = (mouse.step_size_y+1) >> 1;
                 events.push(
                     InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, -mouse.step_size_y)
                 );
             },
             (2, Down) => {
-                mouse.step_size_y = (mouse.step_size_y+1)>>1;
+                mouse.step_size_y = (mouse.step_size_y+1) >> 1;
                 events.push(
                     InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, mouse.step_size_y)
                 );
             },
             (2, Left) => {
-                mouse.step_size_x = (mouse.step_size_x+1)>>1;
+                mouse.step_size_x = (mouse.step_size_x+1) >> 1;
                 events.push(
                     InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, -mouse.step_size_x)
                 );
             },
             (2, Right) => {
-                mouse.step_size_x = (mouse.step_size_x+1)>>1;
+                mouse.step_size_x = (mouse.step_size_x+1) >> 1;
                 events.push(
                     InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, mouse.step_size_x)
                 );
@@ -292,6 +291,9 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 
             // Scroll mode
             (3, Up) => {
+                if is_active(&Behavior::LogarithmicModeOn) {
+                    mouse.scroll_dist_y = (mouse.scroll_dist_y+1) >> 1;
+                }
                 mouse.scroll_accum_y += mouse.scroll_dist_y;
                 events.push(
                     InputEvent::new_now(
@@ -310,6 +312,9 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                 mouse.scroll_accum_y %= 120;
             },
             (3, Down) => {
+                if is_active(&Behavior::LogarithmicModeOn) {
+                    mouse.scroll_dist_y = (mouse.scroll_dist_y+1) >> 1;
+                }
                 mouse.scroll_accum_y -= mouse.scroll_dist_y;
                 events.push(
                     InputEvent::new_now(
@@ -328,6 +333,9 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                 mouse.scroll_accum_y %= 120;
             },
             (3, Left) => {
+                if is_active(&Behavior::LogarithmicModeOn) {
+                    mouse.scroll_dist_x = (mouse.scroll_dist_x+1) >> 1;
+                }
                 mouse.scroll_accum_x -= mouse.scroll_dist_x;
                 events.push(
                     InputEvent::new_now(
@@ -337,7 +345,8 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                     )
                 );
                 events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0,
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
                         RelativeAxisCode::REL_HWHEEL.0,
                         mouse.scroll_accum_x / 120
                     )
@@ -345,6 +354,9 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                 mouse.scroll_accum_x %= 120;
             },
             (3, Right) => {
+                if is_active(&Behavior::LogarithmicModeOn) {
+                    mouse.scroll_dist_x = (mouse.scroll_dist_x+1) >> 1;
+                }
                 mouse.scroll_accum_x += mouse.scroll_dist_x;
                 events.push(
                     InputEvent::new_now(
@@ -354,7 +366,8 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                     )
                 );
                 events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0,
+                    InputEvent::new_now(
+                        EventType::RELATIVE.0,
                         RelativeAxisCode::REL_HWHEEL.0,
                         mouse.scroll_accum_x / 120
                     )
