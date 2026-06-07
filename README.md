@@ -5,7 +5,6 @@
 
 - [Intro](#intro)
   - [What's this](#whats-this)
-  - [Demo (Copy & Paste)](#demo-copy--paste)
   - [Features](#features)
 - [Tested on](#tested-on)
 - [Getting Started](#getting-started)
@@ -31,13 +30,6 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 
 <br>
 
-### Demo (Copy & Paste)
-**Full mouse control — movement, scrolling, clicks, and drag — keyboard only.**
-
-https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
-
-<br>
-
 ### Features
 
 #### Three trigger modes
@@ -46,7 +38,7 @@ https://github.com/user-attachments/assets/de68d664-9fa7-41c9-8a45-5c69f5ace63e
 | --- | --- |
 | **Linear** | The cursor moves by a fixed step at a constant rate. |
 | **Logarithmic** | Each input moves the cursor by half the previous distance (`128 → 64 → 32 ...`). Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
-| **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. |
+| **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. When **Logarithmic** mode is also active, the scroll distance is likewise halved with each input (`512 → 256 → 128 ...`), enabling binary-search-style fine scrolling. |
 
 > [!IMPORTANT]
 > - For uniform cursor movement, disable **mouse acceleration** in your system settings.
@@ -156,8 +148,8 @@ step_size_x : 256
 step_size_y : 256
 
 # Wheel scroll distance
-scroll_dist_x : 2
-scroll_dist_y : 2
+scroll_dist_x : 512
+scroll_dist_y : 512
 ```
 
 ### Keybinds
