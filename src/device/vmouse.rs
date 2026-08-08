@@ -82,27 +82,17 @@ pub fn get_mode() -> u8 {
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub enum Behavior {
-    Exit,
-    Reset,
+    Exit,Reset,
 
-    LinearModeOn,
-    LogarithmicModeOn,
+    LinearModeOn, LinearModeOff,
+    LogarithmicModeOn, LogarithmicModeOff,
+    ScrollModeOn, ScrollModeOff,
 
-    LinearModeOff,
-    LogarithmicModeOff,
+    MoveUp, MoveDown,
+    MoveLeft, MoveRight,
 
-    ScrollModeOn,
-    ScrollModeOff,
-
-    MoveUp,
-    MoveDown,
-    MoveLeft,
-    MoveRight,
-
-    ClickLeft,
-    ClickRight,
-    ReleaseLeft,
-    ReleaseRight,
+    ClickLeft, ClickRight,
+    ReleaseLeft, ReleaseRight,
 
     KeyUp
 }

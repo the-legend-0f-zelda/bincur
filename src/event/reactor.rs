@@ -101,6 +101,7 @@ impl Reactor {
             for ev in self.events.iter() {
                 let token = ev.token();
 
+                // Device monitor alert
                 if token.0 == 0 {
                     for device in self.monitor.iter() {
                         if device.syspath().to_string_lossy().contains("/virtual/input") { continue }

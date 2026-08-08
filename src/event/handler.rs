@@ -72,6 +72,8 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
         let mut to_dispatch:ArrayVec<Behavior, 16> = ArrayVec::new();
 
         if value > 0 { // On keydown
+            let mut mode_changed:bool = false;
+
             for behavior in related_behaviors.iter() {
                 let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                 else {continue};
@@ -82,6 +84,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                         | Behavior::LogarithmicModeOn
                         | Behavior::ScrollModeOn
                         | Behavior::Exit => {
+                            mode_changed = true;
                             device::vmouse::mark_active(behavior);
                             to_dispatch.push(behavior.clone());
                         },
@@ -94,7 +97,9 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                 }
             }
 
-            to_dispatch.extend( device::vmouse::longest_actives(kbd_idx) );
+            if !mode_changed {
+                to_dispatch.extend( device::vmouse::longest_actives(kbd_idx) );
+            }
         }
 
         else { // On keyup
