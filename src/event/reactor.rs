@@ -1,7 +1,7 @@
 use std::os::fd::AsRawFd;
 use mio::{Events, Interest, Poll, Token, unix::SourceFd};
 use udev::MonitorBuilder;
-use crate::{config, device::{self, DeviceError, DeviceHandler, keyboards::KEYBOARDS}, event::handler::determine_handler};
+use crate::{config, device::{self, DeviceError, DeviceHandler, keyboards::{KEYBOARDS, is_keyboard}}, event::handler::determine_handler};
 
 
 pub struct Reactor {
@@ -103,12 +103,15 @@ impl Reactor {
 
                 // Device monitor alert
                 if token.0 == 0 {
-                    for device in self.monitor.iter() {
-                        if device.syspath().to_string_lossy().contains("/virtual/input") { continue }
-                        let Some(node) = device.devnode() else { continue };
-                        if !node.to_string_lossy().starts_with("/dev/input/event") { continue }
+                    for device_event in self.monitor.iter() {
+                        if device_event.syspath().to_string_lossy().contains("/virtual/input") { continue }
+                        let Some(device_path) = device_event.devnode() else { continue };
+                        if !device_path.to_string_lossy().starts_with("/dev/input/event") { continue }
 
-                        match device.event_type() {
+                        let Ok(device) = evdev::Device::open(device_path) else {continue;};
+                        if !is_keyboard(&device) {continue;}
+
+                        match device_event.event_type() {
                             udev::EventType::Add => return Err(DeviceError::Connected),
                             udev::EventType::Remove => return Err(DeviceError::Disconnected),
                             udev::EventType::Change => return Err(DeviceError::ResetRequested),

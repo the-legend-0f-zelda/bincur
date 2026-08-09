@@ -25,17 +25,22 @@ thread_local! {
     );
 }
 
+pub fn is_keyboard(device: &Device) -> bool {
+    device.supported_keys().map_or(false, |supported|
+        supported.contains(evdev::KeyCode::KEY_A)
+        && supported.contains(evdev::KeyCode::KEY_ENTER)
+        && supported.contains(evdev::KeyCode::KEY_SPACE)
+    )
+}
+
 pub fn scan() {
     KEYBOARDS.with_borrow_mut(|keyboards| {keyboards.clear();});
 
     for (path, device) in evdev::enumerate() {
         if device.name().map_or(false, |name| name.starts_with("bincur")) {continue}
-        if device.supported_keys().map_or(false,
-            |supported| supported.contains(evdev::KeyCode::KEY_A)
-            && supported.contains(evdev::KeyCode::KEY_ENTER)
-            && supported.contains(evdev::KeyCode::KEY_SPACE)
-        )
-        { KEYBOARDS.with_borrow_mut(|keyboards| keyboards.push((path, device))); }
+        if is_keyboard(&device) {
+            KEYBOARDS.with_borrow_mut(|keyboards| keyboards.push((path, device)));
+        }
     }
 }
 
