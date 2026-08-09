@@ -9,7 +9,7 @@ SERVICE_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$SERVICE_DIR/bincur.service"
 BIN_DEST="$HOME/.local/bin/bincur"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/" && pwd)"
 BIN_SRC="$REPO_ROOT/target/release/bincur"
 
 # === Args ===

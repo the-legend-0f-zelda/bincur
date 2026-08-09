@@ -92,7 +92,7 @@ Binary will be at `target/release/bincur`.
 A helper script handles permission setup, binary installation, default config file creation, and systemd user service registration in one shot.
 
 ```bash
-./scripts/setup.sh
+./setup.sh
 ```
 > [!IMPORTANT]
 > **Don't run as root.** The script invokes `sudo` internally only for steps that actually need root. (It caches credentials with `sudo -v` at start, so you'll only be prompted for your password once.)
@@ -114,12 +114,12 @@ systemctl --user start bincur
 To **revert**:
 
 ```bash
-./scripts/setup.sh --uninstall
+./setup.sh --uninstall
 ```
 
 This stops/removes the service, deletes the binary, and removes the udev rule. User config files (`~/.config/bincur/*.conf`) and `input` group membership are preserved (other tools may depend on them).
 
-For usage info: `./scripts/setup.sh --help`
+For usage info: `./setup.sh --help`
 
 <br>
 
@@ -227,4 +227,4 @@ Free Software Foundation. See the [LICENSE](LICENSE) file for the full text.
 
 > **AI disclosure:** This README was originally written in Korean by the author;
 > its English text was translated with the assistance of AI tools. The shell
-> script under `scripts/` was written with AI assistance.
+> script `./setup.sh` was written with AI assistance.
