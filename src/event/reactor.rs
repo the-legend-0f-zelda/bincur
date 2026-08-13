@@ -101,7 +101,7 @@ impl Reactor {
             for ev in self.events.iter() {
                 let token = ev.token();
 
-                // Device monitor alert
+                // Handle device monitor alert
                 if token.0 == 0 {
                     for device_event in self.monitor.iter() {
                         if device_event.syspath().to_string_lossy().contains("/virtual/input") { continue }
@@ -121,6 +121,8 @@ impl Reactor {
                     continue;
                 }
 
+                // Read & handle keyboard event
+                // -> return whether a reset is needed
                 needs_reset |= KEYBOARDS.with_borrow_mut(|keyboards| {
                     let kbd_idx = token.0 - 1;
                     let target = &mut keyboards.get_mut(kbd_idx).unwrap().1;

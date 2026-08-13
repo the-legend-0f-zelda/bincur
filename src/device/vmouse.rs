@@ -232,142 +232,81 @@ impl Behavior {
 }
 
 enum Direction {Up, Down, Left, Right,}
+impl Direction {
+    fn is_vertical(&self) -> bool {
+        matches!(self, Up | Down)
+    }
+
+    fn move_sign(&self) -> i32 {
+        match self {Up | Left => -1, Down | Right => 1}
+    }
+
+    fn scroll_sign(&self) -> i32 {
+        match self {Down | Left => -1, Up | Right => 1}
+    }
+}
+
+fn new_rel_event(axis: RelativeAxisCode, value: i32) -> InputEvent {
+    InputEvent::new_now(EventType::RELATIVE.0, axis.0, value)
+}
+
+fn move_target(mouse: &mut Props, vertical: bool) -> (RelativeAxisCode, &mut i32) {
+    if vertical {
+        (RelativeAxisCode::REL_Y, &mut mouse.step_size_y)
+    }else {
+        (RelativeAxisCode::REL_X, &mut mouse.step_size_x)
+    }
+}
 
 fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 {
     VMOUSE_PROPS.with_borrow_mut(|mouse| {
         let mut events:ArrayVec<InputEvent, 2> = ArrayVec::new();
 
-        match (mouse.mode, &direction) {
+        match mouse.mode {
             // Linear mode
-            (1, Up) => {events.push(
-                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, -mouse.step_size_y)
-            )},
-            (1, Down) => {events.push(
-                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, mouse.step_size_y)
-            )},
-            (1, Left) => {events.push(
-                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, -mouse.step_size_x)
-            )},
-            (1, Right) => {events.push(
-                InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, mouse.step_size_x)
-            )},
+            1 => {
+                let (axis, step) = move_target(mouse, direction.is_vertical());
+                events.push(new_rel_event(axis, direction.move_sign() * *step));
+            },
 
             // Logarithmic mode
-            (2, Up) => {
-                mouse.step_size_y = (mouse.step_size_y+1) >> 1;
-                events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, -mouse.step_size_y)
-                );
-            },
-            (2, Down) => {
-                mouse.step_size_y = (mouse.step_size_y+1) >> 1;
-                events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_Y.0, mouse.step_size_y)
-                );
-            },
-            (2, Left) => {
-                mouse.step_size_x = (mouse.step_size_x+1) >> 1;
-                events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, -mouse.step_size_x)
-                );
-            },
-            (2, Right) => {
-                mouse.step_size_x = (mouse.step_size_x+1) >> 1;
-                events.push(
-                    InputEvent::new_now(EventType::RELATIVE.0, RelativeAxisCode::REL_X.0, mouse.step_size_x)
-                );
+            2 => {
+                let (axis, step) = move_target(mouse, direction.is_vertical());
+                *step = (*step+1) >> 1;
+                events.push(new_rel_event(axis, direction.move_sign() * *step));
             },
 
             // Scroll mode
-            (3, Up) => {
+            // Emits two synthetic pointer events:
+            // 1. A high-resolution scroll event
+            // 2. A discrete (notch-based) scroll event,
+            //    derived by dividing the accumulated high-resolution scroll value by 120
+            3 => {
+                let (dist, accum, hi_res_axis, notch_axis) =
+                    if direction.is_vertical() {
+                        (&mut mouse.scroll_dist_y, &mut mouse.scroll_accum_y,
+                            RelativeAxisCode::REL_WHEEL_HI_RES, RelativeAxisCode::REL_WHEEL)
+                    }else {
+                        (&mut mouse.scroll_dist_x, &mut mouse.scroll_accum_x,
+                            RelativeAxisCode::REL_HWHEEL_HI_RES, RelativeAxisCode::REL_HWHEEL)
+                    };
+
                 if is_active(&Behavior::LogarithmicModeOn) {
-                    mouse.scroll_dist_y = (mouse.scroll_dist_y+1) >> 1;
+                    *dist = (*dist+1) >> 1;
                 }
-                mouse.scroll_accum_y += mouse.scroll_dist_y;
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_WHEEL_HI_RES.0,
-                        mouse.scroll_dist_y
-                    )
-                );
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_WHEEL.0,
-                        mouse.scroll_accum_y / 120
-                    )
-                );
-                mouse.scroll_accum_y %= 120;
-            },
-            (3, Down) => {
-                if is_active(&Behavior::LogarithmicModeOn) {
-                    mouse.scroll_dist_y = (mouse.scroll_dist_y+1) >> 1;
-                }
-                mouse.scroll_accum_y -= mouse.scroll_dist_y;
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_WHEEL_HI_RES.0,
-                        -mouse.scroll_dist_y
-                    )
-                );
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_WHEEL.0,
-                        mouse.scroll_accum_y / 120
-                    )
-                );
-                mouse.scroll_accum_y %= 120;
-            },
-            (3, Left) => {
-                if is_active(&Behavior::LogarithmicModeOn) {
-                    mouse.scroll_dist_x = (mouse.scroll_dist_x+1) >> 1;
-                }
-                mouse.scroll_accum_x -= mouse.scroll_dist_x;
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_HWHEEL_HI_RES.0,
-                        -mouse.scroll_dist_x
-                    )
-                );
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_HWHEEL.0,
-                        mouse.scroll_accum_x / 120
-                    )
-                );
-                mouse.scroll_accum_x %= 120;
-            },
-            (3, Right) => {
-                if is_active(&Behavior::LogarithmicModeOn) {
-                    mouse.scroll_dist_x = (mouse.scroll_dist_x+1) >> 1;
-                }
-                mouse.scroll_accum_x += mouse.scroll_dist_x;
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_HWHEEL_HI_RES.0,
-                        mouse.scroll_dist_x
-                    )
-                );
-                events.push(
-                    InputEvent::new_now(
-                        EventType::RELATIVE.0,
-                        RelativeAxisCode::REL_HWHEEL.0,
-                        mouse.scroll_accum_x / 120
-                    )
-                );
-                mouse.scroll_accum_x %= 120;
+
+                let delta = direction.scroll_sign() * *dist;
+                *accum += delta;
+
+                events.push(new_rel_event(hi_res_axis, delta));
+                events.push(new_rel_event(notch_axis, *accum / 120));
+
+                *accum %= 120;
             },
 
-            _ => return events
-        };
-
+            _ => {}
+        }
 
         events
     })
