@@ -4,8 +4,8 @@ pub mod keymap;
 use std::{fs::File, io::{BufRead, BufReader}, path::PathBuf, sync::OnceLock};
 
 pub const KEYCODE_MAX:usize = 248;
-
 pub static CONF_HOME:OnceLock<PathBuf> = OnceLock::new();
+
 pub fn resolve_path() -> &'static PathBuf {
     CONF_HOME.get_or_init(|| {
         return std::env::var("BINCUR_CONF_HOME")
@@ -17,7 +17,7 @@ pub fn resolve_path() -> &'static PathBuf {
     })
 }
 
-pub fn cleaned_lines(conf_name:&str, default_name: Option<&str>) -> Vec<String> {
+pub fn cleaned_uppercase_lines(conf_name:&str, default_name: Option<&str>) -> Vec<String> {
     let mut result:Vec<String> = Vec::new();
 
     let file = match File::open(resolve_path().join(conf_name)) {
@@ -25,7 +25,7 @@ pub fn cleaned_lines(conf_name:&str, default_name: Option<&str>) -> Vec<String> 
         Err(_) => {
             let Some(fallback) = default_name
                 else {return result};
-            return cleaned_lines(fallback, None)
+            return cleaned_uppercase_lines(fallback, None)
         }
     };
 

@@ -250,11 +250,11 @@ fn new_rel_event(axis: RelativeAxisCode, value: i32) -> InputEvent {
     InputEvent::new_now(EventType::RELATIVE.0, axis.0, value)
 }
 
-fn move_target(mouse: &mut Props, vertical: bool) -> (RelativeAxisCode, &mut i32) {
+fn move_target(mouse: &mut Props, vertical: bool) -> (RelativeAxisCode, &mut i32, i32) {
     if vertical {
-        (RelativeAxisCode::REL_Y, &mut mouse.step_size_y)
+        (RelativeAxisCode::REL_Y, &mut mouse.step_size_y, mouse.min_step_size_y)
     }else {
-        (RelativeAxisCode::REL_X, &mut mouse.step_size_x)
+        (RelativeAxisCode::REL_X, &mut mouse.step_size_x, mouse.min_step_size_x)
     }
 }
 
@@ -266,14 +266,15 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
         match mouse.mode {
             // Linear mode
             1 => {
-                let (axis, step) = move_target(mouse, direction.is_vertical());
+                let (axis, step, _min_step) = move_target(mouse, direction.is_vertical());
                 events.push(new_rel_event(axis, direction.move_sign() * *step));
             },
 
             // Logarithmic mode
             2 => {
-                let (axis, step) = move_target(mouse, direction.is_vertical());
+                let (axis, step, min_step) = move_target(mouse, direction.is_vertical());
                 *step = (*step+1) >> 1;
+                if *step < min_step {*step = min_step;}
                 events.push(new_rel_event(axis, direction.move_sign() * *step));
             },
 
@@ -283,17 +284,21 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
             // 2. A discrete (notch-based) scroll event,
             //    derived by dividing the accumulated high-resolution scroll value by 120
             3 => {
-                let (dist, accum, hi_res_axis, notch_axis) =
+                let (dist, accum, hi_res_axis, notch_axis, min_dist) =
                     if direction.is_vertical() {
                         (&mut mouse.scroll_dist_y, &mut mouse.scroll_accum_y,
-                            RelativeAxisCode::REL_WHEEL_HI_RES, RelativeAxisCode::REL_WHEEL)
+                            RelativeAxisCode::REL_WHEEL_HI_RES, RelativeAxisCode::REL_WHEEL, mouse.min_scroll_dist_y)
                     }else {
                         (&mut mouse.scroll_dist_x, &mut mouse.scroll_accum_x,
-                            RelativeAxisCode::REL_HWHEEL_HI_RES, RelativeAxisCode::REL_HWHEEL)
+                            RelativeAxisCode::REL_HWHEEL_HI_RES, RelativeAxisCode::REL_HWHEEL, mouse.min_scroll_dist_x)
                     };
 
                 if is_active(&Behavior::LogarithmicModeOn) {
                     *dist = (*dist+1) >> 1;
+                }
+
+                if *dist < min_dist {
+                    *dist = min_dist;
                 }
 
                 let delta = direction.scroll_sign() * *dist;

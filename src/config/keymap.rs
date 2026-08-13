@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
 use evdev::InputEvent;
 
-use crate::{config::{KEYCODE_MAX, cleaned_lines}, device::{keyboards::{self}, vmouse::Behavior}};
+use crate::{config::{KEYCODE_MAX, cleaned_uppercase_lines}, device::{keyboards::{self}, vmouse::Behavior}};
 
 
 thread_local! {
@@ -26,9 +26,9 @@ pub fn load_cfg_fwd() {
             let lines = match name {
                 Some(name) => {
                     let target_file_name = format!("keymap.{}.conf", name.replace(" ", "_"));
-                    cleaned_lines(target_file_name.as_str(), Some("keymap.conf"))
+                    cleaned_uppercase_lines(target_file_name.as_str(), Some("keymap.conf"))
                 },
-                None => cleaned_lines("keymap.conf", None)
+                None => cleaned_uppercase_lines("keymap.conf", None)
             };
 
             for line in lines {
@@ -96,9 +96,9 @@ pub fn load_cfg_rewire() {
         let cfg_lines = match name {
             Some(name) => {
                 let target_file_name = format!("rewire.{}.conf", name.replace(" ", "_"));
-                cleaned_lines(target_file_name.as_str(), Some("rewire.conf"))
+                cleaned_uppercase_lines(target_file_name.as_str(), Some("rewire.conf"))
             },
-            None => cleaned_lines("rewire.conf", None)
+            None => cleaned_uppercase_lines("rewire.conf", None)
         };
 
         let mut cfg: [u16; KEYCODE_MAX+1] = [0; KEYCODE_MAX+1];

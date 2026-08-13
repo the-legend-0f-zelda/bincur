@@ -1,7 +1,7 @@
 use std::{cell::RefCell, sync::OnceLock};
 use evdev::{AttributeSet, KeyCode, RelativeAxisCode};
 
-use crate::config::cleaned_lines;
+use crate::config::cleaned_uppercase_lines;
 
 static VMOUSE_KEYS: OnceLock<AttributeSet<KeyCode>> = OnceLock::new();
 static VMOUSE_REL_AXES: OnceLock<AttributeSet<RelativeAxisCode>> = OnceLock::new();
@@ -50,8 +50,12 @@ pub struct Props {
     pub grab_scroll: bool,
     pub step_size_x: i32,
     pub step_size_y: i32,
+    pub min_step_size_x: i32,
+    pub min_step_size_y: i32,
     pub scroll_dist_x: i32,
     pub scroll_dist_y: i32,
+    pub min_scroll_dist_x: i32,
+    pub min_scroll_dist_y: i32,
     pub scroll_accum_x: i32,
     pub scroll_accum_y: i32,
 }
@@ -65,10 +69,14 @@ impl Props {
             grab_scroll: false,
             step_size_x: 0,
             step_size_y: 0,
+            min_step_size_x: 0,
+            min_step_size_y: 0,
             scroll_dist_x: 0,
             scroll_dist_y: 0,
+            min_scroll_dist_x: 0,
+            min_scroll_dist_y: 0,
             scroll_accum_x: 0,
-            scroll_accum_y: 0
+            scroll_accum_y: 0,
         }
     }
 
@@ -84,21 +92,30 @@ impl Props {
     pub fn load_default() -> Props {
         let mut cfg = Props::new();
 
-        for line in cleaned_lines("vmouse.conf", None) {
+        for line in cleaned_uppercase_lines("vmouse.conf", None) {
             let kv:Vec<&str> = line.split(':').collect();
-            let [k, v] = kv.as_slice() else {
+            let [k, v] = *kv.as_slice() else {
                   eprintln!("invalid vmouse config: {}", line);
                   std::process::exit(1);
             };
 
-            match *k {
-                "GRAB_LINEAR" => cfg.grab_linear = v.to_uppercase().eq("TRUE"),
-                "GRAB_LOGARITHMIC" => cfg.grab_logarithmic = v.to_uppercase().eq("TRUE"),
-                "GRAB_SCROLL" => cfg.grab_scroll = v.to_uppercase().eq("TRUE"),
+            match k {
+                "GRAB_LINEAR" => cfg.grab_linear = v.eq("TRUE"),
+                "GRAB_LOGARITHMIC" => cfg.grab_logarithmic = v.eq("TRUE"),
+                "GRAB_SCROLL" => cfg.grab_scroll = v.eq("TRUE"),
+
                 "STEP_SIZE_X" => cfg.step_size_x = v.parse().unwrap(),
                 "STEP_SIZE_Y" => cfg.step_size_y = v.parse().unwrap(),
+
+                "MIN_STEP_SIZE_X" => cfg.min_step_size_x = v.parse().unwrap(),
+                "MIN_STEP_SIZE_Y" => cfg.min_step_size_y = v.parse().unwrap(),
+
                 "SCROLL_DIST_X" => cfg.scroll_dist_x = v.parse().unwrap(),
                 "SCROLL_DIST_Y" => cfg.scroll_dist_y = v.parse().unwrap(),
+
+                "MIN_SCROLL_DIST_X" => cfg.min_scroll_dist_x = v.parse().unwrap(),
+                "MIN_SCROLL_DIST_Y" => cfg.min_scroll_dist_y = v.parse().unwrap(),
+
                 _ => continue
             }
         }
