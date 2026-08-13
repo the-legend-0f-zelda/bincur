@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use Direction::*;
 
 use crate::config::{self,keymap};
-use crate::config::vmouse::Props;
+use crate::config::vmouse::{Mode, Props};
 use crate::device::DeviceError;
 
 thread_local! {
@@ -76,7 +76,7 @@ pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
     longest
 }
 
-pub fn get_mode() -> u8 {
+pub fn get_mode() -> Mode {
     VMOUSE_PROPS.with_borrow(|mouse| mouse.mode)
 }
 
@@ -150,34 +150,37 @@ impl Behavior {
 
             Self::LinearModeOn => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    if mouse.mode < 1 {
-                        mouse.mode = 1;
+                    if mouse.mode == Mode::Inactive {
+                        mouse.mode = Mode::Linear;
                     }
                     Ok(mouse.grab_linear)
                 });
             },
             Self::LinearModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    if mouse.mode == 1 { mouse.mode = 0; }
+                    if mouse.mode == Mode::Linear {
+                        mouse.mode = Mode::Inactive;
+                    }
                     Ok(mouse.grab_linear)
                 });
             },
 
             Self::LogarithmicModeOn => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    if mouse.mode < 2 {
-                        mouse.mode = 2;
+                    if mouse.mode == Mode::Inactive
+                    || mouse.mode == Mode::Linear {
+                        mouse.mode = Mode::Logarithmic;
                     }
                     Ok(mouse.grab_logarithmic)
                 });
             },
             Self::LogarithmicModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    if mouse.mode == 2 {
+                    if mouse.mode == Mode::Logarithmic {
                         if is_active(&Behavior::LinearModeOn) {
-                            mouse.mode = 1;
+                            mouse.mode = Mode::Linear;
                         }else {
-                            mouse.mode = 0;
+                            mouse.mode = Mode::Inactive;
                         }
                     }
                     mouse.reset_xy();
@@ -187,20 +190,20 @@ impl Behavior {
 
             Self::ScrollModeOn => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    mouse.mode = 3;
+                    mouse.mode = Mode::Scroll;
                     Ok(mouse.grab_scroll)
                 });
             },
             Self::ScrollModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
-                    if mouse.mode == 3 {
+                    if mouse.mode == Mode::Scroll {
                         if is_active(&Behavior::LogarithmicModeOn) {
-                            mouse.mode = 2;
+                            mouse.mode = Mode::Logarithmic;
                         }else if is_active(&Behavior::LinearModeOn) {
-                            mouse.mode = 1;
+                            mouse.mode = Mode::Linear;
                             mouse.reset_xy();
                         }else {
-                            mouse.mode = 0;
+                            mouse.mode = Mode::Inactive;
                         }
                     }
                     Ok(mouse.grab_scroll)
@@ -265,13 +268,13 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 
         match mouse.mode {
             // Linear mode
-            1 => {
+            Mode::Linear => {
                 let (axis, step, _min_step) = move_target(mouse, direction.is_vertical());
                 events.push(new_rel_event(axis, direction.move_sign() * *step));
             },
 
             // Logarithmic mode
-            2 => {
+            Mode::Logarithmic => {
                 let (axis, step, min_step) = move_target(mouse, direction.is_vertical());
                 *step = (*step+1) >> 1;
                 if *step < min_step {*step = min_step;}
@@ -283,7 +286,7 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
             // 1. A high-resolution scroll event
             // 2. A discrete (notch-based) scroll event,
             //    derived by dividing the accumulated high-resolution scroll value by 120
-            3 => {
+            Mode::Scroll => {
                 let (dist, accum, hi_res_axis, notch_axis, min_dist) =
                     if direction.is_vertical() {
                         (&mut mouse.scroll_dist_y, &mut mouse.scroll_accum_y,
@@ -310,7 +313,7 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                 *accum %= 120;
             },
 
-            _ => {}
+            Mode::Inactive => {}
         }
 
         events
@@ -320,7 +323,7 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
 fn new_click_event(direction: Direction, value: i32) -> ArrayVec<InputEvent, 2> {
     let mut events:ArrayVec<InputEvent, 2> = ArrayVec::new();
 
-    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == 0 {return events}
+    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == Mode::Inactive {return events}
     match direction {
         Left => {events.push(
             InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.0, value)

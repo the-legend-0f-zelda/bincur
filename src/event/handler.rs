@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 use evdev::{Device, EventType};
-use crate::{config::keymap, device::{self, DeviceError, DeviceHandler, vmouse::Behavior}};
+use crate::{config::{keymap, vmouse::Mode}, device::{self, DeviceError, DeviceHandler, vmouse::Behavior}};
 
 
 pub fn determine_handler(options: &Vec<String>) -> (DeviceHandler, bool)
@@ -89,7 +89,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                             to_dispatch.push(behavior.clone());
                         },
                         _ => {
-                            if device::vmouse::get_mode() > 0 {
+                            if device::vmouse::get_mode() != Mode::Inactive {
                                 device::vmouse::mark_active(behavior);
                             }
                         }

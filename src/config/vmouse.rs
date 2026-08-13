@@ -44,7 +44,7 @@ pub fn initialize() {
 
 #[derive(Clone, Copy)]
 pub struct Props {
-    pub mode: u8,
+    pub mode: Mode,
     pub grab_linear: bool,
     pub grab_logarithmic: bool,
     pub grab_scroll: bool,
@@ -63,7 +63,7 @@ pub struct Props {
 impl Props {
     pub fn new() -> Self {
         Self {
-            mode: 0,
+            mode: Mode::Inactive,
             grab_linear: false,
             grab_logarithmic: false,
             grab_scroll: false,
@@ -122,4 +122,10 @@ impl Props {
 
         cfg
     }
+}
+
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    Inactive, Linear, Logarithmic, Scroll
 }
