@@ -1,6 +1,6 @@
 use arrayvec::ArrayVec;
 use evdev::{Device, EventType};
-use crate::{config::{keymap, vmouse::Mode}, device::{self, DeviceError, DeviceHandler, vmouse::Behavior}};
+use crate::{config::{keymap, vmouse::Mode}, device::{self, DeviceError, DeviceHandler, keyboards::update_physical_presss_state, vmouse::Behavior}};
 
 
 pub fn determine_handler(options: &Vec<String>) -> (DeviceHandler, bool)
@@ -54,11 +54,13 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
     for mut ev in keyboard.fetch_events()? {
         if EventType::KEY != ev.event_type() {continue}
 
+        update_physical_presss_state(ev.code() as usize, ev.value());
         ev = keymap::rewire(ev, kbd_idx);
+
         let code = ev.code() as usize;
         let value = ev.value();
 
-        device::keyboards::update_press_state(code, value);
+        device::keyboards::update_logical_press_state(code, value);
 
         let related_behaviors = match keymap::get_related_behaviors(kbd_idx, code)
             {
@@ -78,7 +80,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                 let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                 else {continue};
 
-                if device::keyboards::all_pressed(&combo) {
+                if device::keyboards::logically_all_pressed(&combo, None) {
                     match *behavior {
                         Behavior::LinearModeOn
                         | Behavior::LogarithmicModeOn

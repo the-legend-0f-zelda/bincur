@@ -7,8 +7,13 @@ use crate::config::KEYCODE_MAX;
 thread_local! {
     pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
-    /// Pressed state indexed by evdev scancode
-    static PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
+    /// Press state of physical keys, before rewire. Indexed by evdev scancode.
+    /// [keydown?] : [bool]
+    static PHYSICAL_PRESS_STATE:RefCell<[bool; KEYCODE_MAX+1]> = RefCell::new([false; KEYCODE_MAX+1]);
+
+    /// Press state of logical keys, after rewire. Indexed by evdev scancode.
+    /// [(keydown?, grabbed?)] : [(bool, bool)]
+    static LOGICAL_PRESS_STATE:RefCell<[(bool, bool); KEYCODE_MAX+1]> = RefCell::new([(false, false); KEYCODE_MAX+1]);
 
     /// Virtual device for forwarding unbound key events.
     static VKEYBOARD_PASSTHROUGH:RefCell<VirtualDevice> = RefCell::new(
@@ -44,7 +49,8 @@ pub fn scan() {
     }
 }
 
-pub fn names() -> Vec<Option<String>> {
+pub fn names() -> Vec<Option<String>>
+{
     let mut names:Vec<Option<String>> = Vec::new();
     KEYBOARDS.with_borrow(|keyboards| {
         for (_path, kbd) in keyboards {
@@ -58,24 +64,48 @@ pub fn names() -> Vec<Option<String>> {
     names
 }
 
-pub fn all_pressed(combo: &[usize]) -> bool {
-    PRESS_STATE.with_borrow(|key_states| {
+pub fn physically_all_pressed(combo: &[usize], exclude: Option<usize>) -> bool
+{
+    PHYSICAL_PRESS_STATE.with_borrow(|key_states|{
         combo.iter()
-            .all(|&key_code| key_states.get(key_code).unwrap_or(&(false, false)).0)
+            .all(|&key_code|
+                Some(key_code) == exclude
+                || *key_states.get(key_code).unwrap_or(&false)
+            )
     })
 }
 
-pub fn update_press_state(key_code: usize, key_value: i32) {
-    PRESS_STATE.with_borrow_mut(|p_state| {
-        match p_state.get_mut(key_code) {
-            Some(slot) => slot.0 = key_value > 0,
-            None => {}
-        };
+pub fn logically_all_pressed(combo: &[usize], exclude: Option<usize>) -> bool
+{
+    LOGICAL_PRESS_STATE.with_borrow(|key_states| {
+        combo.iter()
+            .all(|&key_code|
+                Some(key_code) == exclude
+                || key_states.get(key_code).unwrap_or(&(false, false)).0)
+    })
+}
+
+pub fn update_physical_presss_state(key_code: usize, key_value: i32)
+{
+    PHYSICAL_PRESS_STATE.with_borrow_mut(|p_state| {
+        if let Some(slot) = p_state.get_mut(key_code) {
+            *slot = key_value > 0;
+        }
+    })
+}
+
+pub fn update_logical_press_state(key_code: usize, key_value: i32)
+{
+    LOGICAL_PRESS_STATE.with_borrow_mut(|p_state| {
+        if let Some(slot) = p_state.get_mut(key_code) {
+            slot.0 = key_value > 0;
+        }
     });
 }
 
-pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool) {
-    PRESS_STATE.with_borrow_mut(|p_state| {
+pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool)
+{
+    LOGICAL_PRESS_STATE.with_borrow_mut(|p_state| {
         let Some(slot) = p_state.get_mut(key_code)
         else {return};
 
@@ -88,14 +118,20 @@ pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool
     });
 }
 
-pub fn clear_press_state() {
-    PRESS_STATE.with_borrow_mut(|key_states|
+pub fn clear_press_state()
+{
+    LOGICAL_PRESS_STATE.with_borrow_mut(|key_states|
         key_states.iter_mut()
             .for_each(|key_state| *key_state=(false, false) )
     );
+    PHYSICAL_PRESS_STATE.with_borrow_mut(|key_states|
+        key_states.iter_mut()
+            .for_each(|key_state| *key_state=false)
+    );
 }
 
-pub fn pass_through(event: InputEvent) {
+pub fn pass_through(event: InputEvent)
+{
     VKEYBOARD_PASSTHROUGH.with_borrow_mut(|vkeyboard| {
         vkeyboard.emit(&[event]).unwrap();
     });
