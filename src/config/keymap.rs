@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, str::FromStr};
+use std::{cell::RefCell, rc::Rc, str::FromStr};
 use evdev::InputEvent;
 
 use crate::{
@@ -11,36 +11,38 @@ use crate::{
 
 
 thread_local! {
-    /// KEMAP FORWARD[keyboard index]
-    /// Behavior -> Combo: Vec<keycode: uszie>
-    static KEYMAP_FWD: RefCell<Vec<HashMap<Behavior, Rc<Vec<usize>>>>> = RefCell::new(Vec::new());
+    /// KEYMAP FORWARD [keyboard index]
+    /// Behavior as usize -> Combo: Vec<keycode: usize>
+    static KEYMAP_FWD: RefCell<Vec<[Rc<Vec<usize>>; Behavior::VAR_COUNT]>> = RefCell::new(Vec::new());
 
-    /// KEYMAP REVERSE[keyboard index]
+    /// KEYMAP REVERSE [keyboard index]
     /// Keycode -> Related Behaviors: Vec<Behavior>
     static KEYMAP_RVS: RefCell<Vec<[Rc<Vec<Behavior>>; KEYCODE_MAX+1]>> = RefCell::new(Vec::new());
 
-    /// REWIRE FORWARD[keyboard index]
+    /// REWIRE FORWARD [keyboard index]
     /// Keycode -> Required key combo: Vec<keycode: u16>
     static REWIRE_FWD: RefCell<Vec<[Rc<Vec<usize>>; KEYCODE_MAX+1]>> = RefCell::new(Vec::new());
 
-    /// REWIRE REVERSE[keyboard index]
+    /// REWIRE REVERSE [keyboard index]
     /// Keycode -> Related rewire targets: Vec<keycode: u16>
     static REWIRE_RVS: RefCell<Vec<[Rc<Vec<usize>>; KEYCODE_MAX+1]>> = RefCell::new(Vec::new());
 }
 
-pub fn initialize() {
-    load_cfg_fwd();
-    load_cfg_rvs();
+pub fn initialize()
+{
+    load_keymap_fwd();
+    load_keymap_rvs();
     load_rewire_fwd();
     load_rewire_rvs();
 }
 
-pub fn load_cfg_fwd() {
+pub fn load_keymap_fwd()
+{
     KEYMAP_FWD.with_borrow_mut(|fwd| {
         *fwd = Vec::new();
 
         for name in keyboards::names() {
-            let mut cfg:HashMap<Behavior, Rc<Vec<usize>>> = HashMap::new();
+            let mut cfg:[Rc<Vec<usize>>; Behavior::VAR_COUNT] = std::array::from_fn(|_| Rc::new(Vec::new()));
 
             let lines = match name {
                 Some(name) => {
@@ -69,7 +71,7 @@ pub fn load_cfg_fwd() {
                     key_code.0 as usize
                 }).collect();
 
-                cfg.insert(Behavior::from_str(b), Rc::new(inputs));
+                cfg[Behavior::from_str(b) as usize] = Rc::new(inputs);
             }
 
             fwd.push(cfg);
@@ -77,31 +79,26 @@ pub fn load_cfg_fwd() {
     });
 }
 
-pub fn load_cfg_rvs() {
+pub fn load_keymap_rvs()
+{
     KEYMAP_RVS.with_borrow_mut(|rvs| *rvs = Vec::new());
 
-    for (_kbd_idx, keymap) in KEYMAP_FWD.with_borrow(|fwd| fwd.clone())
-        .iter().enumerate()
+    for keymap_fwd in KEYMAP_FWD.with_borrow(|fwd| fwd.clone())
     {
-        let mut flat:HashMap<usize, Vec<Behavior>> = HashMap::new();
-        for (behavior, inputs) in keymap {
-            for key_code in inputs.iter() {
-                match flat.get_mut(key_code) {
-                    Some(slot) => slot.push(behavior.clone()),
-                    None => {
-                        let mut new_slot = Vec::new();
-                        new_slot.push(behavior.clone());
-                        flat.insert(*key_code, new_slot);
-                    }
+        let mut tmp: [Vec<Behavior>; KEYCODE_MAX+1] = std::array::from_fn(|_| Vec::new());
+
+        for (behavior_usize, combo) in keymap_fwd.into_iter().enumerate()
+        {
+            let behavior: Behavior = Behavior::from_usize(behavior_usize).unwrap();
+            for &key in combo.iter() {
+                if let Some(slot) = tmp.get_mut(key) {
+                    slot.push(behavior)
                 }
             }
         }
 
-        let reversed:[Rc<Vec<Behavior>>; KEYCODE_MAX+1] = std::array::from_fn(|idx| {
-            match flat.remove(&idx) {
-                Some(related) => Rc::new(related),
-                None => Rc::new(Vec::new())
-            }
+        let reversed:[Rc<Vec<Behavior>>; KEYCODE_MAX+1] = std::array::from_fn(|key| {
+             Rc::new( std::mem::take(&mut tmp[key]) )
         });
 
         KEYMAP_RVS.with_borrow_mut(|rvs| rvs.push(reversed));
@@ -180,12 +177,18 @@ pub fn load_rewire_rvs()
     }
 }
 
-pub fn get_combo(kbd_idx:usize, behavior:&Behavior) -> Option<Rc<Vec<usize>>>
+pub fn get_combo(kbd_idx:usize, behavior:Behavior) -> Option<Rc<Vec<usize>>>
 {
     KEYMAP_FWD.with_borrow(|fwd| {
         let dev_cfg = fwd.get(kbd_idx).unwrap();
-        match dev_cfg.get(behavior) {
-            Some(combo) => Some(Rc::clone(combo)),
+        match dev_cfg.get(behavior as usize) {
+            Some(combo) => {
+                if combo.len() == 0 {
+                    None
+                }else {
+                    Some(Rc::clone(combo))
+                }
+            },
             None => None
         }
     })

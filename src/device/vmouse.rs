@@ -2,15 +2,17 @@ use arrayvec::ArrayVec;
 use evdev::{KeyCode, RelativeAxisCode};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent};
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 use Direction::*;
 
 use crate::config::{self,keymap};
 use crate::config::vmouse::{Mode, Props};
 use crate::device::DeviceError;
 
+
+static ACTIVATED_SET_BITMASK: AtomicU32 = AtomicU32::new(0);
+
 thread_local! {
-    static ACTIVATED_SET: RefCell<HashSet<Behavior>> = RefCell::new(HashSet::new());
     static VMOUSE_DEVICE: RefCell<VirtualDevice> = RefCell::new(
         VirtualDevice::builder().unwrap()
             .name("bincur")
@@ -21,20 +23,23 @@ thread_local! {
     static VMOUSE_PROPS: RefCell<Props> = RefCell::new(Props::new());
 }
 
-pub fn mark_active(behavior: &Behavior) -> bool {
-    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.insert(behavior.clone()))
+pub fn mark_active(behavior: Behavior) -> bool {
+    let bit = 1u32 << (behavior as u32);
+    ACTIVATED_SET_BITMASK.fetch_or(bit, Relaxed) & bit == 0
 }
 
-pub fn mark_inactive(behavior: &Behavior) -> bool {
-    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.remove(behavior))
+pub fn mark_inactive(behavior: Behavior) -> bool {
+    let bit = 1u32 << (behavior as u32);
+    ACTIVATED_SET_BITMASK.fetch_and(!bit, Relaxed) & bit != 0
 }
 
-pub fn is_active(behavior: &Behavior) -> bool {
-    ACTIVATED_SET.with_borrow(|a_set| a_set.contains(behavior))
+pub fn is_active(behavior: Behavior) -> bool {
+    let bit = 1u32 << (behavior as u32);
+    ACTIVATED_SET_BITMASK.load(Relaxed) & bit != 0
 }
 
 pub fn clear_activated_set() {
-    ACTIVATED_SET.with_borrow_mut(|a_set| a_set.clear());
+    ACTIVATED_SET_BITMASK.store(0, Relaxed);
 }
 
 pub fn initialize() {
@@ -43,35 +48,35 @@ pub fn initialize() {
     });
 }
 
-pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, 16>
+pub fn longest_actives(kbd_idx: usize) -> ArrayVec<Behavior, {Behavior::VAR_COUNT}>
 {
-    let mut longest: ArrayVec<Behavior, 16> = ArrayVec::new();
+    let mut longest: ArrayVec<Behavior, {Behavior::VAR_COUNT}> = ArrayVec::new();
     let mut max_combo_len = 0;
 
-    ACTIVATED_SET.with_borrow(|a_set| {
-        for a in a_set.iter() {
-            match a {
-                Behavior::LinearModeOn
-                | Behavior::LogarithmicModeOn
-                | Behavior::ScrollModeOn
-                | Behavior::Exit => {
-                    continue;
-                },
-                _ => {
-                    let len = match keymap::get_combo(kbd_idx, a) {
-                        Some(combo) => combo.len(),
-                        None => 0
-                    };
-                    if len < max_combo_len {continue}
-                    if len > max_combo_len {
-                        longest.clear();
-                        max_combo_len = len;
-                    }
-                    longest.push(a.clone());
+    for behavior in Behavior::ALL {
+        if !is_active(behavior) {continue;}
+
+        match behavior {
+            Behavior::LinearModeOn
+            | Behavior::LogarithmicModeOn
+            | Behavior::ScrollModeOn
+            | Behavior::Exit => {
+                continue;
+            },
+            _ => {
+                let len = match keymap::get_combo(kbd_idx, behavior) {
+                    Some(combo) => combo.len(),
+                    None => 0
+                };
+                if len < max_combo_len {continue}
+                if len > max_combo_len {
+                    longest.clear();
+                    max_combo_len = len;
                 }
+                longest.push(behavior);
             }
         }
-    });
+    }
 
     longest
 }
@@ -80,9 +85,10 @@ pub fn get_mode() -> Mode {
     VMOUSE_PROPS.with_borrow(|mouse| mouse.mode)
 }
 
-#[derive(Hash, Eq, PartialEq, Debug, Clone)]
+
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
 pub enum Behavior {
-    Exit,Reset,
+    Reset,
 
     LinearModeOn, LinearModeOff,
     LogarithmicModeOn, LogarithmicModeOff,
@@ -94,10 +100,48 @@ pub enum Behavior {
     ClickLeft, ClickRight,
     ReleaseLeft, ReleaseRight,
 
-    KeyUp
+    KeyUp,
+
+    /// Must always remain the last variant; `VAR_COUNT` depends on it.
+    /// Add new variants above this line.
+    Exit
 }
 
+/// `Behavior::ALL` must be ordered by variant declaration order,
+/// otherwise `Behavior::from_usize` silently returns the wrong variant.
+const _: () = {
+    let mut i = 0;
+    while i < Behavior::VAR_COUNT {
+        assert!(Behavior::ALL[i] as usize == i, "Behavior::ALL order must match variant order");
+        i += 1;
+    }
+};
+
 impl Behavior {
+    pub const VAR_COUNT: usize = Self::Exit as usize + 1;
+
+    const ALL: [Self; Self::VAR_COUNT] = [
+            Self::Reset,
+
+            Self::LinearModeOn, Self::LinearModeOff,
+            Self::LogarithmicModeOn, Self::LogarithmicModeOff,
+            Self::ScrollModeOn, Self::ScrollModeOff,
+
+            Self::MoveUp, Self::MoveDown,
+            Self::MoveLeft, Self::MoveRight,
+
+            Self::ClickLeft, Self::ClickRight,
+            Self::ReleaseLeft, Self::ReleaseRight,
+
+            Self::KeyUp,
+
+            Self::Exit
+    ];
+
+    pub fn from_usize(n: usize) -> Option<Self> {
+        Self::ALL.get(n).copied()
+    }
+
     pub fn from_str(behavior: &str) -> Self {
         match behavior.to_uppercase().as_str() {
             "EXIT" => Self::Exit,
@@ -177,7 +221,7 @@ impl Behavior {
             Self::LogarithmicModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode == Mode::Logarithmic {
-                        if is_active(&Behavior::LinearModeOn) {
+                        if is_active(Behavior::LinearModeOn) {
                             mouse.mode = Mode::Linear;
                         }else {
                             mouse.mode = Mode::Inactive;
@@ -197,9 +241,9 @@ impl Behavior {
             Self::ScrollModeOff => {
                 return VMOUSE_PROPS.with_borrow_mut(|mouse| {
                     if mouse.mode == Mode::Scroll {
-                        if is_active(&Behavior::LogarithmicModeOn) {
+                        if is_active(Behavior::LogarithmicModeOn) {
                             mouse.mode = Mode::Logarithmic;
-                        }else if is_active(&Behavior::LinearModeOn) {
+                        }else if is_active(Behavior::LinearModeOn) {
                             mouse.mode = Mode::Linear;
                             mouse.reset_xy();
                         }else {
@@ -290,13 +334,15 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
                 let (dist, accum, hi_res_axis, notch_axis, min_dist) =
                     if direction.is_vertical() {
                         (&mut mouse.scroll_dist_y, &mut mouse.scroll_accum_y,
-                            RelativeAxisCode::REL_WHEEL_HI_RES, RelativeAxisCode::REL_WHEEL, mouse.min_scroll_dist_y)
+                            RelativeAxisCode::REL_WHEEL_HI_RES,
+                            RelativeAxisCode::REL_WHEEL, mouse.min_scroll_dist_y)
                     }else {
                         (&mut mouse.scroll_dist_x, &mut mouse.scroll_accum_x,
-                            RelativeAxisCode::REL_HWHEEL_HI_RES, RelativeAxisCode::REL_HWHEEL, mouse.min_scroll_dist_x)
+                            RelativeAxisCode::REL_HWHEEL_HI_RES,
+                            RelativeAxisCode::REL_HWHEEL, mouse.min_scroll_dist_x)
                     };
 
-                if is_active(&Behavior::LogarithmicModeOn) {
+                if is_active(Behavior::LogarithmicModeOn) {
                     *dist = (*dist+1) >> 1;
                 }
 

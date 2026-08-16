@@ -71,17 +71,17 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
             }
         };
 
-        let mut to_dispatch:ArrayVec<Behavior, 16> = ArrayVec::new();
+        let mut to_dispatch:ArrayVec<Behavior, {Behavior::VAR_COUNT}> = ArrayVec::new();
 
         if value > 0 { // On keydown
             let mut mode_changed:bool = false;
 
-            for behavior in related_behaviors.iter() {
+            for &behavior in related_behaviors.iter() {
                 let Some(combo) = keymap::get_combo(kbd_idx, behavior)
                 else {continue};
 
                 if device::keyboards::logically_all_pressed(&combo, None) {
-                    match *behavior {
+                    match behavior {
                         Behavior::LinearModeOn
                         | Behavior::LogarithmicModeOn
                         | Behavior::ScrollModeOn
@@ -105,7 +105,7 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
         }
 
         else { // On keyup
-            for behavior in related_behaviors.iter() {
+            for &behavior in related_behaviors.iter() {
                 if !device::vmouse::mark_inactive(behavior) {continue}
                 if let Some(inv) = behavior.inverse() {
                     to_dispatch.push(inv);
