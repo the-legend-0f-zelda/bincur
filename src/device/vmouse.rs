@@ -23,26 +23,31 @@ thread_local! {
     static VMOUSE_PROPS: RefCell<Props> = RefCell::new(Props::new());
 }
 
-pub fn mark_active(behavior: Behavior) -> bool {
+pub fn mark_active(behavior: Behavior) -> bool
+{
     let bit = 1u32 << (behavior as u32);
     ACTIVATED_SET_BITMASK.fetch_or(bit, Relaxed) & bit == 0
 }
 
-pub fn mark_inactive(behavior: Behavior) -> bool {
+pub fn mark_inactive(behavior: Behavior) -> bool
+{
     let bit = 1u32 << (behavior as u32);
     ACTIVATED_SET_BITMASK.fetch_and(!bit, Relaxed) & bit != 0
 }
 
-pub fn is_active(behavior: Behavior) -> bool {
+pub fn is_active(behavior: Behavior) -> bool
+{
     let bit = 1u32 << (behavior as u32);
     ACTIVATED_SET_BITMASK.load(Relaxed) & bit != 0
 }
 
-pub fn clear_activated_set() {
+pub fn clear_activated_set()
+{
     ACTIVATED_SET_BITMASK.store(0, Relaxed);
 }
 
-pub fn initialize() {
+pub fn initialize()
+{
     VMOUSE_PROPS.with_borrow_mut(|props| {
         *props = config::vmouse::copy_default_props()
     });
@@ -366,10 +371,15 @@ fn new_move_event(direction: Direction) -> ArrayVec<InputEvent, 2>
     })
 }
 
-fn new_click_event(direction: Direction, value: i32) -> ArrayVec<InputEvent, 2> {
+fn new_click_event(direction: Direction, value: i32) -> ArrayVec<InputEvent, 2>
+{
     let mut events:ArrayVec<InputEvent, 2> = ArrayVec::new();
 
-    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == Mode::Inactive {return events}
+    if VMOUSE_PROPS.with_borrow(|mouse| mouse.mode) == Mode::Inactive
+    && value==1 {
+        return events
+    }
+
     match direction {
         Left => {events.push(
             InputEvent::new_now(EventType::KEY.0, KeyCode::BTN_LEFT.0, value)
