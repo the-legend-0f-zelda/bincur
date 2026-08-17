@@ -8,8 +8,8 @@ thread_local! {
     pub static KEYBOARDS:RefCell<Vec<(PathBuf, Device)>> = RefCell::new(Vec::new());
 
     /// Press state of physical keys, before rewire. Indexed by evdev scancode.
-    /// [keydown?] : [bool]
-    static PHYSICAL_PRESS_STATE:RefCell<[bool; KEYCODE_MAX+1]> = RefCell::new([false; KEYCODE_MAX+1]);
+    /// [keydown?, rewired_to)] : [(bool, usize)]
+    static PHYSICAL_PRESS_STATE:RefCell<[(bool, usize); KEYCODE_MAX+1]> = RefCell::new(std::array::from_fn(|i| (false, i)));
 
     /// Press state of logical keys, after rewire. Indexed by evdev scancode.
     /// [(keydown?, grabbed?)] : [(bool, bool)]
@@ -70,7 +70,9 @@ pub fn physically_all_pressed(combo: &[usize], exclude: Option<usize>) -> bool
         combo.iter()
             .all(|&key_code|
                 Some(key_code) == exclude
-                || *key_states.get(key_code).unwrap_or(&false)
+                || key_states.get(key_code)
+                    .unwrap_or(&(false, 0))
+                    .0
             )
     })
 }
@@ -88,17 +90,43 @@ pub fn logically_all_pressed(combo: &[usize], exclude: Option<usize>) -> bool
 pub fn update_physical_presss_state(key_code: usize, key_value: i32)
 {
     PHYSICAL_PRESS_STATE.with_borrow_mut(|p_state| {
-        if let Some(slot) = p_state.get_mut(key_code) {
-            *slot = key_value > 0;
+        if let Some((pressed, _)) = p_state.get_mut(key_code) {
+            *pressed = key_value > 0;
         }
+    });
+}
+
+pub fn record_emitted(physical_keycode: usize, emitted_keycode: usize)
+{
+    PHYSICAL_PRESS_STATE.with_borrow_mut(|p_state| {
+        if let Some((_, record)) = p_state.get_mut(physical_keycode) {
+            *record = emitted_keycode;
+        }
+    });
+}
+
+pub fn take_emitted(physical_keycode: usize) -> usize
+{
+    PHYSICAL_PRESS_STATE.with_borrow_mut(|p_state| {
+        match p_state.get_mut(physical_keycode) {
+            Some((_, record)) => std::mem::replace(record, physical_keycode),
+            None => physical_keycode,
+        }
+    })
+}
+
+pub fn peek_emitted(physical_keycode: usize) -> usize
+{
+    PHYSICAL_PRESS_STATE.with_borrow(|p_state| {
+        p_state.get(physical_keycode).map_or(physical_keycode, |&(_, record)| record)
     })
 }
 
 pub fn update_logical_press_state(key_code: usize, key_value: i32)
 {
     LOGICAL_PRESS_STATE.with_borrow_mut(|p_state| {
-        if let Some(slot) = p_state.get_mut(key_code) {
-            slot.0 = key_value > 0;
+        if let Some((pressed, _)) = p_state.get_mut(key_code) {
+            *pressed = key_value > 0;
         }
     });
 }
@@ -106,14 +134,14 @@ pub fn update_logical_press_state(key_code: usize, key_value: i32)
 pub fn update_grab_state(key_code: usize, key_value: i32, should_grab: &mut bool)
 {
     LOGICAL_PRESS_STATE.with_borrow_mut(|p_state| {
-        let Some(slot) = p_state.get_mut(key_code)
+        let Some((_, grabbed)) = p_state.get_mut(key_code)
         else {return};
 
         if key_value > 0 {
-            slot.1 = *should_grab;
+            *grabbed = *should_grab;
         }else {
-            *should_grab = slot.1;
-            slot.1 = false;
+            *should_grab = *grabbed;
+            *grabbed = false;
         }
     });
 }
@@ -122,11 +150,11 @@ pub fn clear_press_state()
 {
     LOGICAL_PRESS_STATE.with_borrow_mut(|key_states|
         key_states.iter_mut()
-            .for_each(|key_state| *key_state=(false, false) )
+            .for_each(|slot| *slot=(false, false) )
     );
     PHYSICAL_PRESS_STATE.with_borrow_mut(|key_states|
-        key_states.iter_mut()
-            .for_each(|key_state| *key_state=false)
+        key_states.iter_mut().enumerate()
+            .for_each(|(keycode, slot)| *slot=(false, keycode))
     );
 }
 

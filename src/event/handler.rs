@@ -68,8 +68,8 @@ fn emulate_mouse(keyboard: &mut Device, kbd_idx: usize) -> Result<(), DeviceErro
                 None => {
                     device::keyboards::pass_through(ev);
                     continue;
-            }
-        };
+                }
+            };
 
         let mut to_dispatch:ArrayVec<Behavior, {Behavior::VAR_COUNT}> = ArrayVec::new();
 

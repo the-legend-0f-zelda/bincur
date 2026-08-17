@@ -4,7 +4,7 @@ use evdev::InputEvent;
 use crate::{
     config::{KEYCODE_MAX, cleaned_uppercase_lines},
     device::{
-        keyboards::{self, physically_all_pressed},
+        keyboards::{self, peek_emitted, physically_all_pressed, record_emitted, take_emitted},
         vmouse::Behavior
     }
 };
@@ -208,24 +208,39 @@ pub fn get_related_behaviors(kbd_idx:usize, key_code:usize) -> Option<Rc<Vec<Beh
 pub fn rewire(origin: InputEvent, dev_idx:usize) -> InputEvent
 {
     let original_code = origin.code() as usize;
+    let original_value = origin.value();
 
-    if let Some(rel_targets) = REWIRE_RVS.with_borrow(|rvs|
-        rvs.get(dev_idx)?.get(original_code).map(Rc::clone)
-    ) {
-        for &target in rel_targets.iter() {
-            let Some(combo) = REWIRE_FWD.with_borrow(|fwd|
-                fwd.get(dev_idx)?.get(target).map(Rc::clone)
-            ) else { continue };
+    match original_value {
+        1 => { // keydown
+            if let Some(rel_targets) = REWIRE_RVS.with_borrow(|rvs|
+                rvs.get(dev_idx)?.get(original_code).map(Rc::clone)
+            ) {
+                for &target in rel_targets.iter() {
+                    let Some(combo) = REWIRE_FWD.with_borrow(|fwd|
+                        fwd.get(dev_idx)?.get(target).map(Rc::clone)
+                    ) else { continue };
 
-            if physically_all_pressed(&combo, Some(original_code)) {
-                return InputEvent::new(
-                    origin.event_type().0,
-                    target as u16,
-                    origin.value()
-                )
+                    if physically_all_pressed(&combo, Some(original_code)) {
+                        record_emitted(original_code, target);
+                        return InputEvent::new(
+                            origin.event_type().0,
+                            target as u16,
+                            original_value
+                        );
+                    }
+                }
             }
+            origin
         }
+        2 => InputEvent::new( // auto-repeat
+            origin.event_type().0,
+            peek_emitted(original_code) as u16,
+            original_value
+        ),
+        _ => InputEvent::new( // keyup
+            origin.event_type().0,
+            take_emitted(original_code) as u16,
+            original_value
+        )
     }
-
-    origin
 }
