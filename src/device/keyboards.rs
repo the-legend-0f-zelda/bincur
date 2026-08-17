@@ -30,7 +30,8 @@ thread_local! {
     );
 }
 
-pub fn is_keyboard(device: &Device) -> bool {
+pub fn is_keyboard(device: &Device) -> bool
+{
     device.supported_keys().map_or(false, |supported|
         supported.contains(evdev::KeyCode::KEY_A)
         && supported.contains(evdev::KeyCode::KEY_ENTER)

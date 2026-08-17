@@ -89,18 +89,21 @@ EOF
     if [[ ! -f "$CONF_DIR/vmouse.conf" ]]; then
         cat > "$CONF_DIR/vmouse.conf" <<'EOF'
 # Grab mode trigger keys
-# When TRUE, key-combo input events bound to that mode are consumed and not propagated.
-grab_linear : FALSE
-grab_logarithmic : TRUE
-grab_scroll : TRUE
+grab_linear : false
+grab_logarithmic : true
+grab_scroll : true
 
 # Cursor step size
 step_size_x : 256
 step_size_y : 256
+min_step_size_x : 5
+min_step_size_y : 5
 
 # Wheel scroll distance
-scroll_dist_x : 2
-scroll_dist_y : 2
+scroll_dist_x : 256
+scroll_dist_y : 256
+min_scroll_dist_x : 16
+min_scroll_dist_y : 16
 EOF
         echo "[+] Wrote default $CONF_DIR/vmouse.conf"
     else
@@ -109,8 +112,9 @@ EOF
 
     if [[ ! -f "$CONF_DIR/keymap.conf" ]]; then
         cat > "$CONF_DIR/keymap.conf" <<'EOF'
-# Terminate process
+# Process
 leftctrl+q : EXIT
+leftmeta+leftctrl+r : RESET
 
 # Trigger virtual mouse mode
 leftalt : LINEAR_MODE
