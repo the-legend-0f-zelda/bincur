@@ -204,7 +204,14 @@ The left side may be a single key or a `+`-separated combo; the right side is al
 - If background apps reacting to modifiers like Meta or Alt — when you use them as mode triggers — bothers you, there are three main solutions.
   - First, set the corresponding mode's `grab` option to `TRUE` in `vmouse.conf`. The side effect is that no other application, including the compositor, can use that key.
   - Second, use `rewire.conf`. For example, if you want to use the left Meta key as a bincur mode trigger but a browser reacting to the `Super_L` symbol is annoying, you can add ```leftmeta -> f18``` in `rewire.conf`. Since most apps don't react to F18, only bincur gets triggered. If you want a compositor or certain apps to still use the left Meta selectively, replace the left Meta key with F18 in each of those apps' keybind settings. However, if an app reacts to every key input except specific modifier symbols, you'll need to use the first or third solution.
-  - Third, change the key's keysym through xkb configuration. For example, on Hyprland, setting the mode trigger key's keysym to `Hyper_L` makes background apps that react to the `Super_L` symbol stop responding, while still letting the key serve as the main mod key for bincur and Hyprland triggers.
+  - Third, change the key's keysym through xkb configuration and put it on a free modifier slot. This works on any X11 or Wayland session, since they all read the same keymap. Write it in your xkb symbols file (`~/.xkb/symbols/<layout>`) and select that layout the way your setup normally does — `input:kb_layout` on Hyprland, `xkb_layout` on Sway, `setxkbmap` on X11:
+
+    ```
+    key <LWIN> { type = "ONE_LEVEL", [ Hyper_L ] };
+    modifier_map Mod3 { <LWIN> };
+    ```
+
+    Apps that react to `Super_L` now see `Hyper_L` and ignore it, while your window manager can still bind the key as `Mod3`. The key no longer sets the `Super` bit, so rewrite your existing binds accordingly — on Hyprland, `$mainMod = SUPER` becomes `$mainMod = MOD3`. Both lines are needed — the keysym decides whether apps react, the modifier slot decides whether the window manager does, and changing only the keysym leaves the key on no slot at all. Keep the keysym a modifier type, or it reaches clients as an ordinary keysym event and brings the problem back.
 
 ### Per-device configuration
 When you switch between keyboards with different layouts, the keybinds that feel comfortable on each can differ. To save you from manually editing config files every time you swap between a gaming keyboard, a work keyboard, or a laptop's built-in keyboard, bincur provides per-device keybind and rewire configuration.
