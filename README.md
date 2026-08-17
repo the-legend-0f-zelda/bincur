@@ -37,8 +37,8 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 | Mode | Description |
 | --- | --- |
 | **Linear** | The cursor moves by a fixed step at a constant rate. |
-| **Logarithmic** | Each input moves the cursor by half the previous distance (`128 → 64 → 32 ...`). Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
-| **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. When **Logarithmic** mode is also active, the scroll distance is likewise halved with each input (`512 → 256 → 128 ...`), enabling binary-search-style fine scrolling. |
+| **Logarithmic** | Each input moves the cursor by half the previous distance (`256 → 128 → 64 ...`), never dropping below `min_step_size_*`. Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
+| **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. When **Logarithmic** mode is also active, the scroll distance is likewise halved with each input (`256 → 128 → 64 ...`) down to `min_scroll_dist_*`, enabling binary-search-style fine scrolling. |
 
 > [!IMPORTANT]
 > - For uniform cursor movement, disable **mouse acceleration** in your system settings.
@@ -54,7 +54,8 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 - **Per-device configuration** — For keymap and rewire settings, you can create separate configurations that apply only to a specific keyboard device by referencing the device name (see [Per-device configuration](#per-device-configuration)).
 - **Hot-plug support** — Detects keyboard connect/disconnect events at runtime and reconfigures automatically. No need to restart after plugging in a new keyboard via USB or Bluetooth.
 - **Selective grab** — You can decide whether each mode-trigger key is grabbed (see [Virtual Mouse Settings](#virtual-mouse-settings)). For instance, if Shift is set as a mode trigger, leaving it ungrabbed lets it serve double duty as both a trigger and the normal case-shift key.
-- **Key rewiring** — A simple config file (`rewire.conf`) lets you translate physical key inputs into different key inputs (see [Rewire](#rewire)).
+- **Key rewiring** — A simple config file (`rewire.conf`) lets you translate physical key inputs into different key inputs, either one key or a key combo into a single key (see [Rewire](#rewire)).
+- **Hot reload** — The `RESET` bind re-reads every config file and rescans keyboards at runtime, so config edits apply without restarting the service.
 
 <br>
 
@@ -139,18 +140,24 @@ The examples below are tuned to minimize finger movement from the typing home po
 ```conf
 # Grab mode trigger keys
 # When set to TRUE, key-combo input events bound to the corresponding mode are consumed and not propagated to other applications.
-grab_linear : FALSE
-grab_logarithmic : TRUE
-grab_scroll : TRUE
+grab_linear : false
+grab_logarithmic : true
+grab_scroll : true
 
 # Cursor step size
 step_size_x : 256
 step_size_y : 256
+min_step_size_x : 5
+min_step_size_y : 5
 
 # Wheel scroll distance
-scroll_dist_x : 512
-scroll_dist_y : 512
+scroll_dist_x : 256
+scroll_dist_y : 256
+min_scroll_dist_x : 16
+min_scroll_dist_y : 16
 ```
+
+Step size is in pixels; scroll distance is in high-resolution wheel units (`120` = one traditional notch). The `min_*` keys are the floor that halving stops at while **Logarithmic** mode is active.
 
 ### Keybinds
 
@@ -178,13 +185,16 @@ semicolon : CLICK_RIGHT
 
 ### Rewire
 
-The example below swaps the inputs of the keyboard's Left Alt and Left Meta keys.
+The example below swaps the inputs of the keyboard's Left Alt and Left Meta keys, and turns the `Caps Lock`+`h` combo into a single `Backspace` input.
 
 `~/.config/bincur/rewire.conf`
 ```conf
 leftalt -> leftmeta
 leftmeta -> leftalt
+capslock+h -> backspace
 ```
+
+The left side may be a single key or a `+`-separated combo; the right side is always a single key. Each target key (right side) can be written only once — a later line for the same target replaces the earlier one.
 
 #### Tips
 
