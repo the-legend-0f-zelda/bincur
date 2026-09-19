@@ -32,18 +32,26 @@ Inspired by the grid mode of existing solutions like warpd and mouseless, this t
 
 ### Features
 
-#### Three trigger modes
+#### Mode triggers
 
-| Mode | Description |
+A mode is active only while its trigger key is **held**, and the direction keys (`MOVE_UP` / `DOWN` / `LEFT` / `RIGHT`) follow whichever mode is active.
+
+| Held trigger | Direction keys, per input |
 | --- | --- |
-| **Linear** | The cursor moves by a fixed step at a constant rate. |
-| **Logarithmic** | Each input moves the cursor by half the previous distance (`256 → 128 → 64 ...`), never dropping below `min_step_size_*`. Used for fine-tuning the cursor via **binary search** after a rough move with Linear mode. |
-| **Scroll** | Combined with the configured directional keys, this mode performs up/down/left/right wheel scrolling. When **Logarithmic** mode is also active, the scroll distance is likewise halved with each input (`256 → 128 → 64 ...`) down to `min_scroll_dist_*`, enabling binary-search-style fine scrolling. |
+| `LINEAR_MODE` | Move the cursor by a fixed step (`step_size_*`) |
+| `LOGARITHMIC_MODE` | Move the cursor by half the previous step (`256 → 128 → 64 ...`), floored at `min_step_size_*` |
+| `SCROLL_MODE` | Wheel-scroll by a fixed distance (`scroll_dist_*`) |
+| `SCROLL_MODE` + `LOGARITHMIC_MODE` | Wheel-scroll by half the previous distance, floored at `min_scroll_dist_*` |
 
-> [!IMPORTANT]
+Linear and logarithmic are independent triggers. Scroll has no logarithmic trigger of its own — you hold `LOGARITHMIC_MODE` on top of it as a clutch. Either way the halving lets you home in on a target by **binary search**: one rough move, then halve.
+
+Releasing a trigger falls back to whatever is still held, in the order **scroll** → **logarithmic** → **linear** → idle.
+
+> [!TIP]
 > - For uniform cursor movement, disable **mouse acceleration** in your system settings.
 > - Left and right mouse clicks work in any mode.
-> - When keybinds overlap, trigger priority is **scroll(highest)** → **logarithmic** → **linear**.
+
+<br>
 
 #### Other characteristics
 
@@ -196,22 +204,21 @@ capslock+h -> backspace
 
 The left side may be a single key or a `+`-separated combo; the right side is always a single key. Each target key (right side) can be written only once — a later line for the same target replaces the earlier one.
 
-#### Tips
-
-- In the example, `LOGARITHMIC_MODE` and `SCROLL_MODE` are bound to combinations with `leftalt` to prevent `leftshift` or `c` alone from being grabbed by `vmouse.conf`.
-- Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
-- To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
-- If background apps reacting to modifiers like Meta or Alt — when you use them as mode triggers — bothers you, there are three main solutions.
-  - First, set the corresponding mode's `grab` option to `TRUE` in `vmouse.conf`. The side effect is that no other application, including the compositor, can use that key.
-  - Second, use `rewire.conf`. For example, if you want to use the left Meta key as a bincur mode trigger but a browser reacting to the `Super_L` symbol is annoying, you can add ```leftmeta -> f18``` in `rewire.conf`. Since most apps don't react to F18, only bincur gets triggered. If you want a compositor or certain apps to still use the left Meta selectively, replace the left Meta key with F18 in each of those apps' keybind settings. However, if an app reacts to every key input except specific modifier symbols, you'll need to use the first or third solution.
-  - Third, change the key's keysym through xkb configuration and put it on a free modifier slot. This works on any X11 or Wayland session, since they all read the same keymap. Write it in your xkb symbols file (`~/.xkb/symbols/<layout>`) and select that layout the way your setup normally does — `input:kb_layout` on Hyprland, `xkb_layout` on Sway, `setxkbmap` on X11:
-
-    ```
-    key <LWIN> { type = "ONE_LEVEL", [ Hyper_L ] };
-    modifier_map Mod3 { <LWIN> };
-    ```
-
-    Apps that react to `Super_L` now see `Hyper_L` and ignore it, while your window manager can still bind the key as `Mod3`. The key no longer sets the `Super` bit, so rewrite your existing binds accordingly — on Hyprland, `$mainMod = SUPER` becomes `$mainMod = MOD3`. Both lines are needed — the keysym decides whether apps react, the modifier slot decides whether the window manager does, and changing only the keysym leaves the key on no slot at all. Keep the keysym a modifier type, or it reaches clients as an ordinary keysym event and brings the problem back.
+> [!TIP]
+> - In the example, `LOGARITHMIC_MODE` and `SCROLL_MODE` are bound to combinations with `leftalt` to prevent `leftshift` or `c` alone from being grabbed by `vmouse.conf`.
+> - Although keys are written in lowercase and values in uppercase in the example, the parser is fully case-insensitive — write either side however you want, and you can even mix cases (e.g., camelCase) within a single token.
+> - To find the name of a key you want to bind, see **Key names** under [References](#references). Strip the **`KEY_`** prefix from each scancode identifier and the remainder is the bindable key name (e.g., `KEY_LEFTCTRL` → `LEFTCTRL`).
+> - If background apps reacting to modifiers like Meta or Alt — when you use them as mode triggers — bothers you, there are three main solutions.
+>   - First, set the corresponding mode's `grab` option to `TRUE` in `vmouse.conf`. The side effect is that no other application, including the compositor, can use that key.
+>   - Second, use `rewire.conf`. For example, if you want to use the left Meta key as a bincur mode trigger but a browser reacting to the `Super_L` symbol is annoying, you can add ```leftmeta -> f18``` in `rewire.conf`. Since most apps don't react to F18, only bincur gets triggered. If you want a compositor or certain apps to still use the left Meta selectively, replace the left Meta key with F18 in each of those apps' keybind settings. However, if an app reacts to every key input except specific modifier symbols, you'll need to use the first or third solution.
+>   - Third, change the key's keysym through xkb configuration and put it on a free modifier slot. This works on any X11 or Wayland session, since they all read the same keymap. Write it in your xkb symbols file (`~/.xkb/symbols/<layout>`) and select that layout the way your setup normally does — `input:kb_layout` on Hyprland, `xkb_layout` on Sway, `setxkbmap` on X11:
+>
+>     ```
+>     key <LWIN> { type = "ONE_LEVEL", [ Hyper_L ] };
+>     modifier_map Mod3 { <LWIN> };
+>     ```
+>
+>     Apps that react to `Super_L` now see `Hyper_L` and ignore it, while your window manager can still bind the key as `Mod3`. The key no longer sets the `Super` bit, so rewrite your existing binds accordingly — on Hyprland, `$mainMod = SUPER` becomes `$mainMod = MOD3`. Both lines are needed — the keysym decides whether apps react, the modifier slot decides whether the window manager does, and changing only the keysym leaves the key on no slot at all. Keep the keysym a modifier type, or it reaches clients as an ordinary keysym event and brings the problem back.
 
 ### Per-device configuration
 When you switch between keyboards with different layouts, the keybinds that feel comfortable on each can differ. To save you from manually editing config files every time you swap between a gaming keyboard, a work keyboard, or a laptop's built-in keyboard, bincur provides per-device keybind and rewire configuration.
