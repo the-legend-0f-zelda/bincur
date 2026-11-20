@@ -88,7 +88,7 @@ Releasing a trigger falls back to whatever is still held, in the order **scroll*
     - Arch: already included with `systemd` (default)
 
 ```bash
-git clone https://github.com/the-legend-0f-zelda/bincur
+git clone https://github.com/smhxxxx/bincur
 cd bincur
 cargo build --release
 ```
@@ -243,7 +243,7 @@ After it starts, press any key on the keyboard whose name you want to find. The 
 
 ## License
 
-Copyright (C) 2026 master@scamsite.biz
+Copyright (C) 2026 me@smh.zone
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 3, as published by the
